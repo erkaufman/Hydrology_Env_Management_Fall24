@@ -1,0 +1,96 @@
+---
+title: "1.2 Water Budgets with City and Suburbs"
+author: "Emma Kaufman"
+output: pdf_document
+---
+
+```{r, import packages}
+library(readxl)
+library(tidyverse)
+library(lubridate)
+library(here)
+library(cowplot)
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+getwd()
+here()
+```
+
+```{r, import data}
+Monthly_data_city_suburbs <- read_excel(here("Data/1.2_City&amp;Suburbs_MonthlyData.xlsx"))
+
+#set date to datetime
+Monthly_data_city_suburbs$Bill_year_Month <- ymd(Monthly_data_city_suburbs$Bill_year_Month)
+
+#set township and class to factor
+Monthly_data_city_suburbs$Township <- as.factor(Monthly_data_city_suburbs$Township)
+Monthly_data_city_suburbs$ClassBroad <- as.factor(Monthly_data_city_suburbs$ClassBroad)
+
+#rename columns
+colnames(Monthly_data_city_suburbs)[8] ="Water_used_ccf"
+
+```
+
+
+```{r, dividing df into suburbs}
+Monthly_data_suburbA <- subset(Monthly_data_city_suburbs, Township %in% c("SUBURB A"))
+Monthly_data_suburbB <- subset(Monthly_data_city_suburbs, Township %in% c("SUBURB B"))
+Monthly_data_suburbC <- subset(Monthly_data_city_suburbs, Township %in% c("SUBURB C"))
+Monthly_data_suburbD <- subset(Monthly_data_city_suburbs, Township %in% c("SUBURB D"))
+Monthly_data_suburbE <- subset(Monthly_data_city_suburbs, Township %in% c("SUBURB E"))
+Monthly_data_city <- subset(Monthly_data_city_suburbs, Township %in% c("CITY CORE"))
+
+
+
+```
+
+
+```{r, plotting water use in township A}
+Water_used_A <-  ggplot() +
+  #geom_point(data = Monthly_data_suburbA, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  geom_line(data = Monthly_data_suburbA, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  labs(x = "Date", y = "Water Used (CCF)") +
+  ggtitle("Water Used in Township A by Class") +
+  xlim(as.Date("2011-01-01"), as.Date("2020-01-01"))
+
+# Print the plot
+Water_used_A
+
+```
+
+```{r, township B}
+Water_used_B <-  ggplot() +
+  #geom_point(data = Monthly_data_suburbA, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  geom_line(data = Monthly_data_suburbB, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  labs(x = "Date", y = "Water Used (CCF)") +
+  ggtitle("Water Used in Township B by Class") +
+  xlim(as.Date("2011-01-01"), as.Date("2020-01-01"))
+
+# Print the plot
+Water_used_B
+```
+
+
+```{r, plotting water use in city core}
+Water_used_city <- ggplot() +
+  #geom_point(data = Monthly_data_suburbE, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  geom_line(data = Monthly_data_city, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  labs(x = "Date", y = "Water Used (CCF)") +
+  ggtitle("Water Used in City Core by Class") +
+  xlim(as.Date("2011-01-01"), as.Date("2020-01-01"))
+
+Water_used_city
+```
+
+```{r, plotting water use in township E}
+Water_used_E <- ggplot() +
+  #geom_point(data = Monthly_data_suburbE, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  geom_line(data = Monthly_data_suburbE, aes(x = Bill_year_Month, y = Water_used_ccf, color = ClassBroad)) +
+  labs(x = "Date", y = "Water Used (CCF)") +
+  ggtitle("Water Used in Township E by Class") +
+  xlim(as.Date("2011-01-01"), as.Date("2020-01-01"))
+
+Water_used_E
+```
+
