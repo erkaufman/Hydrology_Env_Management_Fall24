@@ -1,0 +1,410 @@
+---
+title: "Hydrology memo 2"
+author: "Emma Kaufman"
+date: "2024-10-02"
+output: pdf_document
+---
+```{r, read in data}
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(zoo)
+
+#read in raw data
+Greensboro_raw <- read_excel("Data/Hydrology_memo_2.xlsx", 
+    sheet = "Greensboro_daily_precip_1980-pr", 
+    col_types = c("date", "text", "numeric", 
+        "numeric", "numeric"), na = "NaN")
+
+Boone_raw <- read_excel("Data/Hydrology_memo_2.xlsx", 
+    sheet = "Boone_daily_precip_1980-present", 
+    col_types = c("date", "text", "numeric", 
+        "numeric", "numeric"), na = "NaN")
+
+Greenville_raw <- read_excel("Data/Hydrology_memo_2.xlsx", 
+    sheet = "Greenville_daily_precip_1980-pr", 
+    col_types = c("date", "text", "numeric", 
+        "numeric", "numeric"), na = "NaN")
+
+Boone_raw$`Area Weighted Mean Precipitation (mm per day)` <- 
+  as.numeric(Boone_raw$`Area Weighted Mean Precipitation (mm per day)`)
+
+Greensboro_raw$`Area Weighted Mean Precipitation (mm per day)` <- 
+  as.numeric(Greensboro_raw$`Area Weighted Mean Precipitation (mm per day)`)
+
+Greenville_raw$`Area Weighted Mean Precipitation (mm per day)` <- 
+  as.numeric(Greenville_raw$`Area Weighted Mean Precipitation (mm per day)`)
+```
+
+#24-hour data, 48-hour, 72-hour data
+
+Calculate 24-hr, 48-hr, and 72-hr storms
+```{r}
+Boone_rolling_sum <- Boone_raw %>%
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>% # Remove NAs for leap year issues
+  mutate(
+    rolling_48hr = rollapply(`Area Weighted Mean Precipitation (mm per day)`, width = 2, FUN = sum, fill = NA, align = 'right'),
+    rolling_72hr = rollapply(`Area Weighted Mean Precipitation (mm per day)`, width = 3, FUN = sum, fill = NA, align = 'right'),
+    sum_72hr = rollsum(`Area Weighted Mean Precipitation (mm per day)`, 3, fill=NA)
+  )
+
+Greensboro_rolling_sum <- Greensboro_raw %>%
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>% # Remove NAs for leap year issues
+  mutate(
+    rolling_48hr = rollapply(`Area Weighted Mean Precipitation (mm per day)`, width = 2, FUN = sum, fill = NA, align = 'right'),
+    rolling_72hr = rollapply(`Area Weighted Mean Precipitation (mm per day)`, width = 3, FUN = sum, fill = NA, align = 'right')
+  )
+
+Greenville_rolling_sum <- Greenville_raw %>% 
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>% # Remove NAs for leap year issues
+  mutate(
+    rolling_48hr = rollapply(`Area Weighted Mean Precipitation (mm per day)`, width = 2, FUN = sum, fill = NA, align = 'right'),
+    rolling_72hr = rollapply(`Area Weighted Mean Precipitation (mm per day)`, width = 3, FUN = sum, fill = NA, align = 'right')
+  )
+```
+
+Moving average of 24-hr data on a weekly basis to ensure each event is statistically different from the others
+```{r}
+# Boone
+Boone_24hr <- Boone_raw %>%
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>%
+  mutate(weekly_avg_24hr_precip = rollmean(`Area Weighted Mean Precipitation (mm per day)`, k = 7, fill = NA, align = "right"))
+
+Boone_24hr_monthlyavg <- Boone_24hr %>% 
+  slice(-1, -2, -3, -4, -5, -6) %>% #skip first three rows bc NA
+  group_by(year,month) %>% 
+  summarize(max_24 = max(weekly_avg_24hr_precip),
+            avg_24 = mean(weekly_avg_24hr_precip)) 
+
+
+Boone_24hr_old <- Boone_24hr %>% filter(year <= 2000)
+Boone_24hr_new <- Boone_24hr %>% filter(year > 2000 & year <= 2016)
+
+# Greensboro
+Greensboro_24hr <- Greensboro_raw %>%
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>%
+  mutate(weekly_avg_24hr_precip = rollmean(`Area Weighted Mean Precipitation (mm per day)`, k = 7, fill = NA, align = "right"))
+
+Greensboro_24hr_old <- Greensboro_24hr %>% filter(year <= 2000)
+Greensboro_24hr_new <- Greensboro_24hr %>% filter(year > 2000 & year <= 2016)
+
+# Greenville
+Greenville_24hr <- Greensboro_raw %>%
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>%
+  mutate(weekly_avg_24hr_precip = rollmean(`Area Weighted Mean Precipitation (mm per day)`, k = 7, fill = NA, align = "right"))
+
+Greensboro_24hr_old <- Greensboro_24hr %>% filter(year <= 2000)
+Greensboro_24hr_new <- Greensboro_24hr %>% filter(year > 2000 & year <= 2016)
+
+```
+
+Rank weekly average 24 hour event for weibull
+```{r}
+# Boone
+n_old = nrow(Boone_24hr_old)
+
+Boone_24hr_old_rank <- Boone_24hr_old %>%
+  arrange(desc(weekly_avg_24hr_precip)) %>%
+  mutate(Rank_24hr = rank(-weekly_avg_24hr_precip),
+         weibull_return_24hr = (n_old + 1) / Rank_24hr,
+         weibull_return_24_year = weibull_return_24hr/365)
+
+n_new = nrow(Boone_24hr_new)
+
+Boone_24hr_new_rank <- Boone_24hr_new %>%
+  arrange(desc(weekly_avg_24hr_precip)) %>%
+  mutate(Rank_24hr = rank(-weekly_avg_24hr_precip),
+         weibull_return_24hr = (n_new + 1) / Rank_24hr,
+         weibull_return_24_year = weibull_return_24hr/365,
+         percent_liklihood=(1/weibull_return_24_year)*100)
+
+# Greensboro
+
+# Greenville
+
+```
+
+Rolling sum for each 72hr period, then got the average total precipitation in a 72hr period per month, and max total 72 hour precip per month
+```{r}
+Boone_72hr_monthlyavg <- Boone_rolling_sum %>% 
+  slice(-1, -2) %>% #skip first two rows bc NA
+  group_by(year,month) %>% 
+  summarize(max_72 = max(rolling_72hr),
+            avg_72 = mean(rolling_72hr)) 
+
+Boone_72hr_old <- Boone_72hr_monthlyavg %>% filter(year <= 2000)
+Boone_72hr_new <- Boone_72hr_monthlyavg %>% filter(year > 2000 & year <= 2016)
+
+n_old_72= nrow(Boone_72hr_old)
+
+Boone_72hr_old_rank<- Boone_72hr_old %>% 
+  ungroup() %>% 
+  mutate(Rank_72hr_avg = rank(-avg_72), 
+         weibull_return_72hr = (n_old_72 + 1) / Rank_72hr_avg)
+```
+
+
+```{r}
+#is this the way to sum for a 72 hour event? 
+Boone_72hr <- Boone_raw %>%
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>%  # Remove NA values if needed
+  mutate(group = ceiling(row_number() / 3)) %>%  # Create an index grouping every 3 days
+  group_by(group) %>%  # Group by this new 3-day index
+  summarise(
+    start_date = min(Date),  # Optionally keep track of the starting date of the 3-day period
+    end_date = max(Date),    # Optionally keep track of the ending date
+    precip_72hr = sum(`Area Weighted Mean Precipitation (mm per day)`, na.rm = TRUE)  # Sum precipitation over the 3-day block
+  )
+```
+
+Take monthly max and average of 72 hour events 
+```{r}
+
+```
+
+## Annual data
+
+Calculate sum of precipitation for each year in each city. 
+```{r, Calculate sum of precipitation for each year in each city}
+Boone_annual_precip <- Boone_raw %>% 
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>% #remove NAs for Dec 31 in leap years
+  group_by(year) %>% 
+  summarise(Annual_precip_mm = sum(`Area Weighted Mean Precipitation (mm per day)`) ) %>% 
+  mutate(Annual_precip_in = (`Annual_precip_mm`/25.4))
+
+Greensboro_annual_precip <- Greensboro_raw %>% 
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>% #remove NAs for Dec 31 in leap years
+  group_by(year) %>% 
+  summarise(Annual_precip_mm = sum(`Area Weighted Mean Precipitation (mm per day)`) )%>% 
+  mutate(Annual_precip_in = (`Annual_precip_mm`/25.4))
+
+Greenville_annual_precip <- Greenville_raw %>% 
+  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>% #remove NAs for Dec 31 in leap years
+  group_by(year) %>% 
+  summarise(Annual_precip_mm = sum(`Area Weighted Mean Precipitation (mm per day)`) )%>% 
+  mutate(Annual_precip_in = (`Annual_precip_mm`/25.4))
+```
+
+rank the yearly total precipitation from highest to lowest 
+```{r, rank the yearly total precipitation from highest to lowest }
+#looking at all of the data
+Boone_annual_sorted <- Boone_annual_precip %>% 
+  arrange(desc(Annual_precip_in))
+Boone_annual_sorted$Rank = rank(-Boone_annual_sorted$Annual_precip_in)
+
+#pre-2001
+Boone_annual_sorted_old <- Boone_annual_precip[1:21,]%>% 
+  arrange(desc(Annual_precip_in))
+Boone_annual_sorted_old$Rank = rank(-Boone_annual_sorted_old$Annual_precip_in)
+
+#post-2001
+Boone_annual_sorted_new <- Boone_annual_precip[22:37,]%>% 
+  arrange(desc(Annual_precip_in))
+Boone_annual_sorted_new$Rank = rank(-Boone_annual_sorted_new$Annual_precip_in)                                              
+
+
+
+Greensboro_annual_sorted <- Greensboro_annual_precip %>% 
+  arrange(desc(Annual_precip_in))
+Greensboro_annual_sorted$Rank = rank(-Greensboro_annual_sorted$Annual_precip_in)
+
+Greenville_annual_sorted <- Greenville_annual_precip %>% 
+  arrange(desc(Annual_precip_in))
+Greenville_annual_sorted$Rank = rank(-Greenville_annual_sorted$Annual_precip_in)
+
+```
+
+Calculate probabilities and return periods for pre-2000 and post-2000 
+```{r}
+n_all = 37 #number of events
+Boone_annual_sorted <- Boone_annual_sorted %>% 
+  mutate(weibull_return = (n_all+1)/Rank) %>% 
+  mutate(hazen_return = 100/(100*(2*Rank-1)/(2*n_all)))
+
+n_old = 21
+Boone_annual_sorted_old <- Boone_annual_sorted_old %>% 
+  mutate(weibull_return = (n_old+1)/Rank) %>% 
+  mutate(hazen_return = 100/(100*(2*Rank-1)/(2*n_old)))
+
+n_new= 16
+Boone_annual_sorted_new <- Boone_annual_sorted_new %>% 
+  mutate(weibull_return = (n_new+1)/Rank) %>% 
+  mutate(hazen_return = 100/(100*(2*Rank-1)/(2*n_new)))
+
+```
+
+```{r}
+boone_annual_plot<- 
+  ggplot((Boone_annual_sorted),
+         #choosing variables
+         aes(
+           y = Annual_precip_in,
+           x = weibull_return
+         )) +
+  geom_point()+
+  ggtitle("Precip v Return interval")+
+  labs(y= "Precipitation (in)", x= "Return period (weibull)")
+boone_annual_plot
+
+boone_new_old <- ggplot() +
+  geom_point(data=Boone_annual_sorted_new, aes(y=Annual_precip_in, x=weibull_return), color = 'tomato')+
+  geom_point(data=Boone_annual_sorted_old, aes(y=Annual_precip_in, x=weibull_return), color = 'purple')+
+  labs(y= "Precipitation (in)", x= "Return period (weibull)")
+
+boone_new_old
+```
+
+#look at later:
+Find max storm events for each year
+```{r}
+Boone_max_storms <- Boone_rolling_sum %>%
+  group_by(year) %>%
+  summarise(
+    max_24hr = max(`Area Weighted Mean Precipitation (mm per day)`, na.rm = TRUE),
+    max_48hr = max(rolling_48hr, na.rm = TRUE),
+    max_72hr = max(rolling_72hr, na.rm = TRUE)
+  )
+
+Greensboro_max_storms <- Greensboro_rolling_sum %>%
+  group_by(year) %>%
+  summarise(
+    max_24hr = max(`Area Weighted Mean Precipitation (mm per day)`, na.rm = TRUE),
+    max_48hr = max(rolling_48hr, na.rm = TRUE),
+    max_72hr = max(rolling_72hr, na.rm = TRUE)
+  )
+
+Greenville_max_storms <- Greenville_rolling_sum %>%
+  group_by(year) %>%
+  summarise(
+    max_24hr = max(`Area Weighted Mean Precipitation (mm per day)`, na.rm = TRUE),
+    max_48hr = max(rolling_48hr, na.rm = TRUE),
+    max_72hr = max(rolling_72hr, na.rm = TRUE)
+  )
+```
+calculate reccurence intervals based on max rate
+```{r}
+# Step 4: Rank and calculate recurrence intervals for old period
+n_old = nrow(Boone_old)
+Boone_old <- Boone_old %>%
+  arrange(desc(max_24hr)) %>%
+  mutate(Rank_24hr = rank(-max_24hr),
+         weibull_return_24hr = (n_old + 1) / Rank_24hr,
+         hazen_return_24hr = (n_old + 0.5) / Rank_24hr) %>%
+  arrange(desc(max_48hr)) %>%
+  mutate(Rank_48hr = rank(-max_48hr),
+         weibull_return_48hr = (n_old + 1) / Rank_48hr,
+         hazen_return_48hr = (n_old + 0.5) / Rank_48hr) %>%
+  arrange(desc(max_72hr)) %>%
+  mutate(Rank_72hr = rank(-max_72hr),
+         weibull_return_72hr = (n_old + 1) / Rank_72hr,
+         hazen_return_72hr = (n_old + 0.5) / Rank_72hr)
+
+# Step 4: Rank and calculate recurrence intervals for new period
+n_new = nrow(Boone_new)
+Boone_new <- Boone_new %>%
+  arrange(desc(max_24hr)) %>%
+  mutate(Rank_24hr = rank(-max_24hr),
+         weibull_return_24hr = (n_new + 1) / Rank_24hr,
+         hazen_return_24hr = (n_new + 0.5) / Rank_24hr) %>%
+  arrange(desc(max_48hr)) %>%
+  mutate(Rank_48hr = rank(-max_48hr),
+         weibull_return_48hr = (n_new + 1) / Rank_48hr,
+         hazen_return_48hr = (n_new + 0.5) / Rank_48hr) %>%
+  arrange(desc(max_72hr)) %>%
+  mutate(Rank_72hr = rank(-max_72hr),
+         weibull_return_72hr = (n_new + 1) / Rank_72hr,
+         hazen_return_72hr = (n_new + 0.5) / Rank_72hr)
+
+```
+
+
+
+
+Want to eliminate the each days data is independent of another day, so can implement an moving average. To determine how long to average across, we sort for the 50 largest precipitation events and see how long the last approximately. 
+
+```{r, looking at largest storm events}
+# Boone 
+Boone_sorted <- Boone_raw %>% 
+  arrange(desc(`Area Weighted Mean Precipitation (mm per day)`))
+Boone_top_50 <- Boone_sorted[1:50, ]
+
+# Greensboro
+Greensboro_sorted <- Greensboro_raw %>% 
+  arrange(desc(`Area Weighted Mean Precipitation (mm per day)`))
+Greensboro_top_50 <- Greensboro_sorted[1:50, ]
+
+# Greenville
+Greenville_sorted <- Greenville_raw %>% 
+  arrange(desc(`Area Weighted Mean Precipitation (mm per day)`))
+Greenville_top_50 <- Greenville_sorted[1:50, ]
+
+```
+
+Can look for a window of 7 days around a large precipitation event, how many days was precipitation above a minimum value of 4 mm?
+```{r, checking length of longest rainfall events}
+# Function to check rainfall duration for each large event
+get_rain_duration <- function(data, date, window = 7) {
+  # Find the index of the current date
+  index <- which(data$Date == date)
+  
+  start_index <- max(1, index - window)  # Ensure we don't go out of bounds
+  end_index <- min(nrow(data), index + window)  # Ensure we don't exceed the last row
+  
+  # Precipitation values in the 10 days before and after the event
+  precip_values <- 
+    data$`Area Weighted Mean Precipitation (mm per day)`[start_index:end_index]
+  
+  # Event day is the center, which is at index
+  event_day_precip <- 
+    data$`Area Weighted Mean Precipitation (mm per day)`[index]
+  
+  # Identify how long the event lasted (precipitation > 0)
+  event_duration <- sum(precip_values > 4)
+  
+  return(event_duration)
+}
+
+# Apply the function for each of the top 50 values for each city 
+Boone_durations <- sapply(1:nrow(Boone_top_50), function(i) {
+  date <- Boone_top_50$Date[i]  # Get the date of the top 50th event
+  get_rain_duration(Boone_raw, date)  # Calculate the rain duration for that event
+})
+Greensboro_durations <- sapply(1:nrow(Greensboro_top_50), function(i) {
+  date <- Greensboro_top_50$Date[i]  # Get the date of the top 50th event
+  get_rain_duration(Greensboro_raw, date)  # Calculate the rain duration for that event
+})
+Greenville_durations <- sapply(1:nrow(Greenville_top_50), function(i) {
+  date <- Greenville_top_50$Date[i]  # Get the date of the top 50th event
+  get_rain_duration(Greenville_raw, date)  # Calculate the rain duration for that event
+})
+
+# Add durations back to the top_50 dataframe
+Boone_top_50$rain_event_duration <- Boone_durations
+Greensboro_top_50$rain_event_duration <- Greensboro_durations
+Greenville_top_50$rain_event_duration <- Greenville_durations
+
+# Step 4: Calculate and print the average duration
+Boone_average_duration <- mean(Boone_top_50$rain_event_duration)
+print(paste("The average duration of the top 50 storm events in Boone is", Boone_average_duration, "days"))
+
+Greenville_average_duration <- mean(Greenville_top_50$rain_event_duration)
+print(paste("The average duration of the top 50 storm events in Greenville is", Greenville_average_duration, "days"))
+
+Greensboro_average_duration <- mean(Greensboro_top_50$rain_event_duration)
+print(paste("The average duration of the top 50 storm events in Greensboro is",Greensboro_average_duration, "days"))
+
+```
+Each rain event lasts approximately 2-3 days, so will implement a 3 day moving average across all of the datasets. 
+
+seperate into two timesteps, pre-2001 and post-2001
+```{r}
+# Boone_old <- Boone_max_storms %>% filter(year <= 2000)
+# Boone_new <- Boone_max_storms %>% filter(year > 2000 & year <= 2016)
+# 
+# Greensboro_old <- Greensboro_max_storms %>% filter(year <= 2000)
+# Greensboro_new <- Greensboro_max_storms %>% filter(year > 2000 & year <= 2016)
+# 
+# Greenville_old <- Greenville_max_storms %>% filter(year <= 2000)
+# Greenville_new <- Greenville_max_storms %>% filter(year > 2000 & year <= 2016)
+```
+

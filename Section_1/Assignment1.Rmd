@@ -2,6 +2,7 @@
 title: "R Notebook"
 output: html_notebook
 ---
+
 ```{r}
 #load packages
 library(readxl)
@@ -60,21 +61,27 @@ mean_yearly_data <- inflow_outflow %>%
     Flat = mean(total_volume_FLAT),
     Eno = mean(total_volume_ENO),
     Yearly_Inflow = mean(total_inflow_volume),
-    Yearly_Outflow = mean(total_outflow))
+    Yearly_Outflow = mean(total_outflow)) %>% 
+  filter(Year >= 1985)
+  
 ```
 
 ```{r, plot yearly flows}
 YearlyInflowOutflow <- ggplot() +
-  geom_line( aes(x = mean_yearly_data$Year, y= (mean_yearly_data$Yearly_Inflow)/100000000, color= 'Yearly Inflow'))+
-   geom_line(aes(x = mean_yearly_data$Year, y= (mean_yearly_data$Yearly_Outflow)/100000000, color= 'Yearly Outflow')) +
+  geom_line( aes(x = mean_yearly_data$Year, 
+                 y= (mean_yearly_data$Yearly_Inflow)/100000000, 
+                 color= 'Yearly Inflow'))+
+   geom_line(aes(x = mean_yearly_data$Year, 
+                 y= (mean_yearly_data$Yearly_Outflow)/100000000, 
+                 color= 'Yearly Outflow')) +
   labs(
     title = "Total Inflow and Outflow Over Time",
     x = "Year",
-    y = "Billions of gallons",
+    y = "Billions of cubic feet of water",
     color= "Legend", 
   ) +
   scale_x_continuous(breaks = seq(min(mean_yearly_data$Year), max(mean_yearly_data$Year), by = 5)) +  
-  scale_y_continuous(breaks = seq(0, max(mean_yearly_data$Yearly_Inflow / 100000000, mean_yearly_data$Yearly_Outflow / 100000000), by = 5)) +  # Customize y-axis
+  scale_y_continuous(breaks = seq(0, max(mean_yearly_data$Yearly_Inflow / 100000, mean_yearly_data$Yearly_Outflow / 100000), by = 5)) +  # Customize y-axis
   theme_minimal() +
   theme(legend.position = "top") 
 
@@ -85,4 +92,36 @@ YearlyInflowOutflow
 
 ```
 
+```{r, plot yearly ENO inflow}
+YearlyEno <- ggplot(eno_inflow_monthly, aes(x = year, 
+                 y= total_volume/100000000)) +
+  geom_line()+
+  geom_smooth(method="lm")+
+  labs(
+    title = "Total Eno Inflow Over Time",
+    x = "Year",
+    y = "Billions of cubic feet of water"
+  ) +
+  #scale_x_continuous(breaks = seq(min(mean_yearly_data$Year), max(mean_yearly_data$Year), by = 5)) +  
+  #scale_y_continuous(breaks = seq(0, max(mean_yearly_data$Eno), by = 5)) +  # Customize y-axis
+  theme_minimal() 
 
+YearlyEno
+```
+
+```{r}
+YearlyFlat <- ggplot(flat_inflow_monthly, aes(x = year, 
+                 y= total_volume/100000000)) +
+  geom_line( )+
+  geom_smooth(method= "lm")+
+  labs(
+    title = "Total Flat Inflow Over Time",
+    x = "Year",
+    y = "Billions of cubic feet of water"
+  ) +
+  #scale_x_continuous(breaks = seq(min(mean_yearly_data$Year), max(mean_yearly_data$Year), by = 5)) +  
+  #scale_y_continuous(breaks = seq(0, max(mean_yearly_data$Eno), by = 1)) +  # Customize y-axis
+  theme_minimal() 
+
+YearlyFlat
+```
