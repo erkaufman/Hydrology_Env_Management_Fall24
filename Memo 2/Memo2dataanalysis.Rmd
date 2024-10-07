@@ -37,9 +37,9 @@ Greenville_raw$`Area Weighted Mean Precipitation (mm per day)` <-
   as.numeric(Greenville_raw$`Area Weighted Mean Precipitation (mm per day)`)
 ```
 
-#24-hour data, 48-hour, 72-hour data
+#24-hour data, 72-hour data
 
-Calculate 24-hr, 48-hr, and 72-hr storms
+Calculate 24-hr and 72-hr storms using rolling sums 
 ```{r}
 Boone_rolling_sum <- Boone_raw %>%
   # Remove NAs for leap year issues
@@ -237,7 +237,8 @@ Boone_24hr_plot_weibull
 Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed. 
 ```{r}
 #hazen
-# Define probabilities of occurrence
+# Define probabilities of occurrence for 100 year, 50 year, 25 year,
+#and 10 year flood
 probabilities <- c(1, 2, 4, 10)
 
 # Create an empty list to store results
@@ -326,7 +327,15 @@ boone_monthly_new_data <- Boone_24hr_monthlyavg %>%
   filter(Timeframe=='2000-2016') %>% 
   group_by(month) %>% 
   summarise(avg=mean(max_24_mm),
-            max=max(max_24_mm))
+            max=max(max_24_mm)) %>% 
+  ungroup()
+
+boone_monthly_old_data <-  Boone_24hr_monthlyavg %>% 
+  filter(Timeframe=='1980-1999') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_24_mm),
+            max=max(max_24_mm)) %>% 
+  ungroup()
 ```
 
 Greensboro 24-hr events
@@ -460,7 +469,15 @@ monthly_new_data_greensboro <- Greensboro_24hr_monthlyavg %>%
   filter(Timeframe== '2000-2016' ) %>% 
   group_by(month) %>% 
   summarise(avg=mean(max_24_mm),
-            max=max(max_24_mm))
+            max=max(max_24_mm)) %>% 
+  ungroup()
+
+monthly_old_data_greensboro <- Greensboro_24hr_monthlyavg %>% 
+  filter(Timeframe== '1980-1999' ) %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_24_mm),
+            max=max(max_24_mm)) %>% 
+  ungroup()
 ```
 
 Greenville 24 hour events:
@@ -597,49 +614,356 @@ monthly_new_data_Greenville <- Greenville_24hr_monthlyavg %>%
   filter(Timeframe== '2000-2016' ) %>% 
   group_by(month) %>% 
   summarise(avg=mean(max_24_mm),
-            max=max(max_24_mm))
+            max=max(max_24_mm)) %>% 
+  ungroup()
+
+monthly_old_data_Greenville <- Greenville_24hr_monthlyavg %>% 
+  filter(Timeframe== '1980-1999' ) %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_24_mm),
+            max=max(max_24_mm)) %>% 
+  ungroup()
 ```
 
 Rolling sum for each 72hr period, then got the average total precipitation in a 72hr period per month, and max total 72 hour precip per month
 ```{r}
+# Boone
+#Take the maximum 72hr event for each month across all years
 Boone_72hr_monthlyavg <- Boone_rolling_sum %>% 
   slice(-1, -2) %>% #skip first two rows bc NA
   group_by(year,month) %>% 
-  summarize(max_72 = max(rolling_72hr),
-            avg_72 = mean(rolling_72hr)) 
+  summarize(max_72hr_mm = max(rolling_72hr),
+            avg_72hr_mm = mean(rolling_72hr)) %>% 
+  mutate(Timeframe = as.factor(ifelse(year>=2000,"2000-2016","1980-1999")))
 
-Boone_72hr_old <- Boone_72hr_monthlyavg %>% filter(year <= 2000)
-Boone_72hr_new <- Boone_72hr_monthlyavg %>% filter(year > 2000 & year <= 2016)
+#calculate recurrence intervals for each monthly maximum event across all years
+Boone_72hr_recurrence<- Boone_72hr_monthlyavg %>% 
+  group_by(Timeframe) %>% 
+  arrange(desc(max_72hr_mm)) %>% 
+  mutate(
+    Rank = rank(-max_72hr_mm),
+    weibull_return_72hr = ((n()+1)/Rank),
+    weibull_return_72_year = weibull_return_72hr/12,
+    weibull_percent_likelihood=(1/weibull_return_72_year)*100*12,
+    weibull_percent_likelihood_yr=(1/weibull_return_72_year)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_percent_likelihood_yr = 12*100*(2*Rank-1)/(2*n()),
+    hazen_return_72hr = 100/hazen_percent_likelihood,
+    hazen_return_72hr_year = hazen_return_72hr/12,
+    log_prob_occurence_hazen = log(hazen_percent_likelihood_yr),
+    log_prob_occurence_weibull = log(weibull_percent_likelihood_yr)
+  )
 
-n_old_72= nrow(Boone_72hr_old)
+# Greensboro
+Greensboro_72hr_monthlyavg <- Greensboro_rolling_sum %>% 
+  slice(-1, -2) %>% #skip first two rows bc NA
+  group_by(year,month) %>% 
+  summarize(max_72hr_mm = max(rolling_72hr),
+            avg_72hr_mm = mean(rolling_72hr)) %>% 
+  mutate(Timeframe = as.factor(ifelse(year>=2000,"2000-2016","1980-1999")))
 
-Boone_72hr_old_rank<- Boone_72hr_old %>% 
-  ungroup() %>% 
-  mutate(Rank_72hr_avg = rank(-avg_72), 
-         weibull_return_72hr = (n_old_72 + 1) / Rank_72hr_avg)
-```
+#calculate recurrence intervals for each monthly maximum event across all years
+Greensboro_72hr_recurrence<- Greensboro_72hr_monthlyavg %>% 
+  group_by(Timeframe) %>% 
+  arrange(desc(max_72hr_mm)) %>% 
+  mutate(
+    Rank = rank(-max_72hr_mm),
+    weibull_return_72hr = ((n()+1)/Rank),
+    weibull_return_72_year = weibull_return_72hr/12,
+    weibull_percent_likelihood=(1/weibull_return_72_year)*100*12,
+    weibull_percent_likelihood_yr=(1/weibull_return_72_year)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_percent_likelihood_yr = 12*100*(2*Rank-1)/(2*n()),
+    hazen_return_72hr = 100/hazen_percent_likelihood,
+    hazen_return_72hr_year = hazen_return_72hr/12,
+    log_prob_occurence_hazen = log(hazen_percent_likelihood_yr),
+    log_prob_occurence_weibull = log(weibull_percent_likelihood_yr)
+  )
 
+# Greenville
+Greenville_72hr_monthlyavg <- Greenville_rolling_sum %>% 
+  slice(-1, -2) %>% #skip first two rows bc NA
+  group_by(year,month) %>% 
+  summarize(max_72hr_mm = max(rolling_72hr),
+            avg_72hr_mm = mean(rolling_72hr)) %>% 
+  mutate(Timeframe = as.factor(ifelse(year>=2000,"2000-2016","1980-1999")))
 
-```{r}
-#is this the way to sum for a 72 hour event? 
-Boone_72hr <- Boone_raw %>%
-  drop_na(`Area Weighted Mean Precipitation (mm per day)`) %>%  # Remove NA values if needed
-  mutate(group = ceiling(row_number() / 3)) %>%  # Create an index grouping every 3 days
-  group_by(group) %>%  # Group by this new 3-day index
-  summarise(
-    start_date = min(Date),  # Optionally keep track of the starting date of the 3-day period
-    end_date = max(Date),    # Optionally keep track of the ending date
-    precip_72hr = sum(`Area Weighted Mean Precipitation (mm per day)`, na.rm = TRUE)  # Sum precipitation over the 3-day block
+#calculate recurrence intervals for each monthly maximum event across all years
+Greenville_72hr_recurrence<- Greenville_72hr_monthlyavg %>% 
+  group_by(Timeframe) %>% 
+  arrange(desc(max_72hr_mm)) %>% 
+  mutate(
+    Rank = rank(-max_72hr_mm),
+    weibull_return_72hr = ((n()+1)/Rank),
+    weibull_return_72_year = weibull_return_72hr/12,
+    weibull_percent_likelihood=(1/weibull_return_72_year)*100*12,
+    weibull_percent_likelihood_yr=(1/weibull_return_72_year)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_percent_likelihood_yr = 12*100*(2*Rank-1)/(2*n()),
+    hazen_return_72hr = 100/hazen_percent_likelihood,
+    hazen_return_72hr_year = hazen_return_72hr/12,
+    log_prob_occurence_hazen = log(hazen_percent_likelihood_yr),
+    log_prob_occurence_weibull = log(weibull_percent_likelihood_yr)
   )
 ```
 
-Take monthly max and average of 72 hour events 
+# Boone 72hr storm events
+Plot precipitation v likelihood of occurrence for the two time frames of interest (1980-1999 and 2000-2016)
 ```{r}
+# Boone
+Boone_72hr_plot_weibull <- Boone_72hr_recurrence %>%
+  ggplot(aes(x = log_prob_occurence_weibull, 
+             y = max_72hr_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Weibull)", 
+       y = "Maximum 72-Hour Precipitation (mm)", 
+       title = "Boone Monthly maximum 72-Hour Precipitation
+       vs Probability of Occurrence (weibull)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+
+Boone_72hr_plot_weibull
+
+```
+Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed. 
+
+```{r}
+#weibull
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Boone_72hr_recurrence$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Boone_72hr_recurrence %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_72hr_mm ~ log_prob_occurence_weibull, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_weibull = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Boone_Predicted_Precipitation_72hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
 
 ```
 
-## Annual data
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
+```{r}
+boone_monthly_new_data_72 <- Boone_72hr_monthlyavg %>% 
+  filter(Timeframe=='2000-2016') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_72hr_mm),
+            max=max(max_72hr_mm)) %>% 
+  ungroup()
 
+boone_monthly_old_data_72 <-  Boone_72hr_monthlyavg %>% 
+  filter(Timeframe=='1980-1999') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_72hr_mm),
+            max=max(max_72hr_mm)) %>% 
+  ungroup()
+```
+
+
+# Greensboro 72hr storm events
+Plot precipitation v likelihood of occurrence for the two time frames of interest (1980-1999 and 2000-2016)
+```{r}
+# Greensboro
+Greensboro_72hr_plot_weibull <- Greensboro_72hr_recurrence %>%
+  ggplot(aes(x = log_prob_occurence_weibull, 
+             y = max_72hr_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Weibull)", 
+       y = "Maximum 72-Hour Precipitation (mm)", 
+       title = "Greensboro Monthly maximum 72-Hour Precipitation
+       vs Probability of Occurrence (weibull)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+
+Greensboro_72hr_plot_weibull
+
+```
+Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed. 
+
+```{r}
+#weibull
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Greensboro_72hr_recurrence$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Greensboro_72hr_recurrence %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_72hr_mm ~ log_prob_occurence_weibull, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_weibull = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Greensboro_Predicted_Precipitation_72hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
+```{r}
+Greensboro_monthly_new_data_72 <- Greensboro_72hr_monthlyavg %>% 
+  filter(Timeframe=='2000-2016') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_72hr_mm),
+            max=max(max_72hr_mm)) %>% 
+  ungroup()
+
+Greensboro_monthly_old_data_72 <-  Greensboro_72hr_monthlyavg %>% 
+  filter(Timeframe=='1980-1999') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_72hr_mm),
+            max=max(max_72hr_mm)) %>% 
+  ungroup()
+```
+
+# Greenville 72hr storm events
+Plot precipitation v likelihood of occurrence for the two time frames of interest (1980-1999 and 2000-2016)
+```{r}
+# Greenville
+Greenville_72hr_plot_weibull <- Greenville_72hr_recurrence %>%
+  ggplot(aes(x = log_prob_occurence_weibull, 
+             y = max_72hr_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Weibull)", 
+       y = "Maximum 72-Hour Precipitation (mm)", 
+       title = "Greensboro Monthly maximum 72-Hour Precipitation
+       vs Probability of Occurrence (weibull)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+
+Greenville_72hr_plot_weibull
+
+```
+Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed. 
+
+```{r}
+#weibull
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Greenville_72hr_recurrence$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Greenville_72hr_recurrence %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_72hr_mm ~ log_prob_occurence_weibull, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_weibull = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Greenville_Predicted_Precipitation_72hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
+```{r}
+Greenville_monthly_new_data_72 <- Greenville_72hr_monthlyavg %>% 
+  filter(Timeframe=='2000-2016') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_72hr_mm),
+            max=max(max_72hr_mm)) %>% 
+  ungroup()
+
+Greenville_monthly_old_data_72 <-  Greenville_72hr_monthlyavg %>% 
+  filter(Timeframe=='1980-1999') %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_72hr_mm),
+            max=max(max_72hr_mm)) %>% 
+  ungroup()
+```
+
+## Annual data
 Calculate sum of precipitation for each year in each city. 
 ```{r, Calculate sum of precipitation for each year in each city}
 Boone_annual_precip <- Boone_raw %>% 
