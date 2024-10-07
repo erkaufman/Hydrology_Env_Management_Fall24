@@ -194,7 +194,8 @@ Greenville_recurrence_24hr <- Greenville_24hr_monthlyavg %>%
 
 Plot precipitation v likelihood of occurrence for the two time frames of interest (1980-1999 and 2000-2016)
 ```{r}
-Boone_24hr_plot <- Boone_recurrence_24hr %>%
+# Boone
+Boone_24hr_plot_hazen <- Boone_recurrence_24hr %>%
   ggplot(aes(x = log_prob_occurence_hazen, 
              y = max_24_mm, 
              color = Timeframe)) +
@@ -213,14 +214,29 @@ Boone_24hr_plot <- Boone_recurrence_24hr %>%
   #   breaks = log(c(0.1, 0.04, 0.02, 0.01)),  # Log-transformed breaks
   #   labels = c("10%", "4%", "2%", "1%")  # Custom labels
   # )
+Boone_24hr_plot_hazen
 
+Boone_24hr_plot_weibull <- Boone_recurrence_24hr %>%
+  ggplot(aes(x = log_prob_occurence_weibull, 
+             y = max_24_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Weibull)", 
+       y = "Maximum 24-Hour Precipitation (mm)", 
+       title = "Boone Monthly maximum 24-Hour Precipitation vs Probability of Occurrence (weibull)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
 
-
-
+Boone_24hr_plot_weibull
 
 ```
 Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed. 
 ```{r}
+#hazen
 # Define probabilities of occurrence
 probabilities <- c(1, 2, 4, 10)
 
@@ -261,16 +277,328 @@ final_results <- bind_rows(results)
 print(final_results)
 
 ```
+```{r}
+#weibull
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Boone_recurrence_24hr$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Boone_recurrence_24hr %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_24_mm ~ log_prob_occurence_weibull, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_weibull = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Predicted_Precipitation_24hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+
 Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
 ```{r}
-monthly_new_data <- Boone_24hr_monthlyavg %>% 
+boone_monthly_new_data <- Boone_24hr_monthlyavg %>% 
   filter(Timeframe=='2000-2016') %>% 
   group_by(month) %>% 
   summarise(avg=mean(max_24_mm),
             max=max(max_24_mm))
 ```
 
+Greensboro 24-hr events
+```{r}
+Greensboro_24hr_plot_hazen <- Greensboro_recurrence_24hr %>%
+  ggplot(aes(x = log_prob_occurence_hazen, 
+             y = max_24_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Hazen)", 
+       y = "Maximum 24-Hour Precipitation (mm)", 
+       title = "Greensboro Monthly maximum 24-Hour Precipitation vs Probability of Occurrence (Hazen)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+  # scale_x_reverse(
+  #   #limits = log(c(0, 1)),  # Make sure to set the correct limits in log scale
+  #   breaks = log(c(0.1, 0.04, 0.02, 0.01)),  # Log-transformed breaks
+  #   labels = c("10%", "4%", "2%", "1%")  # Custom labels
+  # )
+Greensboro_24hr_plot_hazen
 
+Greensboro_24hr_plot_weibull <- Greensboro_recurrence_24hr %>%
+  ggplot(aes(x = log_prob_occurence_weibull, 
+             y = max_24_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Weibull)", 
+       y = "Maximum 24-Hour Precipitation (mm)", 
+       title = "Greensboro Monthly maximum 24-Hour Precipitation vs Probability of Occurrence (Weibull)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+
+
+Greensboro_24hr_plot_weibull
+```
+
+```{r}
+#weibull
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Greensboro_recurrence_24hr$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Greensboro_recurrence_24hr %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_24_mm ~ log_prob_occurence_weibull, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_weibull = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Predicted_Precipitation_24hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+```{r}
+#hazen
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Greensboro_recurrence_24hr$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Greensboro_recurrence_24hr %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_24_mm ~ log_prob_occurence_hazen, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_hazen = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Predicted_Precipitation_24hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+```{r}
+monthly_new_data_greensboro <- Greensboro_24hr_monthlyavg %>% 
+  filter(Timeframe== '2000-2016' ) %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_24_mm),
+            max=max(max_24_mm))
+```
+
+Greenville 24 hour events:
+
+```{r}
+Greenville_24hr_plot_hazen <- Greenville_recurrence_24hr %>%
+  ggplot(aes(x = log_prob_occurence_hazen, 
+             y = max_24_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Hazen)", 
+       y = "Maximum 24-Hour Precipitation (mm)", 
+       title = "Greenville Monthly maximum 24-Hour Precipitation vs Probability of Occurrence (Hazen)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+  # scale_x_reverse(
+  #   #limits = log(c(0, 1)),  # Make sure to set the correct limits in log scale
+  #   breaks = log(c(0.1, 0.04, 0.02, 0.01)),  # Log-transformed breaks
+  #   labels = c("10%", "4%", "2%", "1%")  # Custom labels
+  # )
+Greenville_24hr_plot_hazen
+
+Greenville_24hr_plot_weibull <- Greenville_recurrence_24hr %>%
+  ggplot(aes(x = log_prob_occurence_weibull, 
+             y = max_24_mm, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%) (Weibull)", 
+       y = "Maximum 24-Hour Precipitation (mm)", 
+       title = "Greenville Monthly maximum 24-Hour Precipitation vs Probability of Occurrence (Weibull)") +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_reverse(  # Keep the x-axis reversed
+    labels = function(x) round(exp(x), 2)  # Convert log values back to probabilities for labels
+  )
+
+
+Greenville_24hr_plot_weibull
+```
+
+```{r}
+#weibull
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Greenville_recurrence_24hr$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Greenville_recurrence_24hr %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_24_mm ~ log_prob_occurence_weibull, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_weibull = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Predicted_Precipitation_24hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+
+```{r}
+#hazen
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Greenville_recurrence_24hr$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Greenville_recurrence_24hr %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(max_24_mm ~ log_prob_occurence_hazen, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(log_prob_occurence_hazen = log(probabilities))
+  
+  # Step 4: Make predictions using the model
+  predicted_precipitation <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Predicted_Precipitation_24hr_mm = predicted_precipitation
+  )
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results)
+
+```
+
+```{r}
+monthly_new_data_Greenville <- Greenville_24hr_monthlyavg %>% 
+  filter(Timeframe== '2000-2016' ) %>% 
+  group_by(month) %>% 
+  summarise(avg=mean(max_24_mm),
+            max=max(max_24_mm))
+```
 
 Rolling sum for each 72hr period, then got the average total precipitation in a 72hr period per month, and max total 72 hour precip per month
 ```{r}
@@ -349,7 +677,6 @@ Boone_annual_sorted_old$Rank = rank(-Boone_annual_sorted_old$Annual_precip_in)
 Boone_annual_sorted_new <- Boone_annual_precip[22:37,]%>% 
   arrange(desc(Annual_precip_in))
 Boone_annual_sorted_new$Rank = rank(-Boone_annual_sorted_new$Annual_precip_in)                                              
-
 
 
 Greensboro_annual_sorted <- Greensboro_annual_precip %>% 
