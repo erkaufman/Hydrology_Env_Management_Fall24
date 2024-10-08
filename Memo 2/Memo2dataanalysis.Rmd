@@ -1,17 +1,18 @@
 ---
-title: "Hydrology memo 2"
-author: "Emma Kaufman"
+title: "Appendix"
+author: "Emma Kaufman, Mark Lamendola, and Sarah Sussman"
 date: "2024-10-02"
 output: pdf_document
 ---
-```{r, read in data}
+```{r message=FALSE, warning=FALSE, include=FALSE}
+# load packages
 library(readxl)
 library(dplyr)
 library(tidyverse)
 library(zoo)
 library(ggplot2)
 
-#read in raw data
+# read in raw data
 Greensboro_raw <- read_excel("Data/Hydrology_memo_2.xlsx", 
     sheet = "Greensboro_daily_precip_1980-pr", 
     col_types = c("date", "text", "numeric", 
@@ -37,9 +38,11 @@ Greenville_raw$`Area Weighted Mean Precipitation (mm per day)` <-
   as.numeric(Greenville_raw$`Area Weighted Mean Precipitation (mm per day)`)
 ```
 
-#24-hour data, 72-hour data
+#24-hour data, 72-hour data change?!****
 
-Calculate 24-hr and 72-hr storms using rolling sums 
+We began our analysis by preparing the data to analyze different storm event durations. We took a rolling sum across 3 days to get an estimated 72 hour storm event for each day. 
+
+Moving average of 24-hr data on a weekly basis to ensure each event is statistically different from the others. Then take maximum 24 hour event from each month for every year.
 ```{r}
 Boone_rolling_sum <- Boone_raw %>%
   # Remove NAs for leap year issues
@@ -73,7 +76,7 @@ Greenville_rolling_sum <- Greenville_raw %>%
   )
 ```
 
-Moving average of 24-hr data on a weekly basis to ensure each event is statistically different from the others. Then take maximum 24 hour event from each month for every year.
+
 ```{r}
 # Boone
 # Take a moving average over a 7 day window
