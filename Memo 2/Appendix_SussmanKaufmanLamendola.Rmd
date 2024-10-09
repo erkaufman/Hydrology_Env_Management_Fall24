@@ -1,9 +1,9 @@
 ---
 title: "Appendix"
 author: "Emma Kaufman, Mark Lamendola, and Sarah Sussman"
-date: "2024-10-02"
 output:
   pdf_document: default
+fig_caption: yes
 ---
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -15,7 +15,6 @@ library(zoo)
 library(ggplot2)
 library(knitr)
 library(tidyr)
-
 
 
 # read in raw data
@@ -45,19 +44,18 @@ Greenville_raw$`Area Weighted Mean Precipitation (mm per day)` <-
 ```
 
 ### Data Source
-
 The daily area weighted mean precipitation data used for these analyses came from USGS gauging stations in Boone, Greensboro, and Greenville. The HUC codes for each station are as follows:
-
 -   Boone HUC 050500010201
 -   Greensboro HUC 030300020105
 -   Greenville 030201030403
-
 We used these data to analyze whether precipitation characteristics have changed for the different college campuses located in each of these cities since the last major investment in infrastructure that wrapped up in 1999.
 
 ### Data Wrangling
 We began our analysis by preparing the data to analyze different storm event durations, focusing on 24-hr and 72-hr storm events. To get estimates for 72-hr storm events we took a rolling sum across a 3 day window to get an estimated 72-hour storm event for each day. For 24-hr storm events we took a moving average of 24-hr data over a 7-day window to ensure each event being analyzed was statistically different from the others, which is an assumption of the Weibull recurrence interval calculation.
 
-For the 24-hour data we then found monthly maximum 24 hour events for each month in each year of available data. The maximum 24-hour storm event for each month from 1980-2016 was then used to calculate recurrence intervals for 24-hour storm events.
+For the 24-hour data we then found monthly maximum 24 hour events for each month in each year of available data. The maximum 24-hour storm event for each month from 1980-1999 and 2000-2016 was then used to calculate recurrence intervals for 24-hour storm events pre- and post-2000.
+
+For the 72-hour data we found monthly maximum 72 hour events for each month in each year. The maximum 72-hour storm event for each month from 1980-1999 and 2000-2016 was then used to calculate recurrence intervals for 72-hour storm events pre- and post-2000.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 Boone_rolling_sum <- Boone_raw %>%
@@ -298,9 +296,11 @@ Greenville_72hr_recurrence<- Greenville_72hr_monthlyavg %>%
 
 After calculating return intervals for each 24-hour and 72-hour storm event in each time frame of interest (pre- and post-2000) we plotted the difference in return periods from 1980-1999 and from 2000-2016 for each city.
 
-Since 1980-1999, events of the same likelihood have become more intense. For example, in Boone, a 1 inch 24-hour event from 1980-1999 had a 37.5% chance of occurring. More recent data (2000-2016) shows that the same likelihood event would be associated with around a 1.25 in 24 hour event.
+Since 1980-1999, events of the same likelihood have become more intense. For example, in Boone, a 1 inch 24-hour event from 1980-1999 had a 37.5% chance of occurring. More recent data (2000-2016) shows that the same likelihood event would be associated with around a 1.25 inch 24 hour event. More rain in the same amount of time is more likely now than it was in 2000.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= " Boone 24-hr storm events"}
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Boone 24-hr storm events"}
 # Boone
 
 Boone_24hr_plot_weibull <- Boone_recurrence_24hr %>%
@@ -326,6 +326,7 @@ Boone_24hr_plot_weibull <- Boone_recurrence_24hr %>%
 
 Boone_24hr_plot_weibull
 ```
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greensboro 24-hr storm events"}
 Greensboro_24hr_plot_weibull <- Greensboro_recurrence_24hr %>%
@@ -353,6 +354,7 @@ Greensboro_24hr_plot_weibull <- Greensboro_recurrence_24hr %>%
 Greensboro_24hr_plot_weibull
 ```
 
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greenville 24-hr storm events"}
 Greenville_24hr_plot_weibull <- Greenville_recurrence_24hr %>%
   ggplot(aes(x = weibull_percent_likelihood_yr, 
@@ -378,6 +380,7 @@ Greenville_24hr_plot_weibull <- Greenville_recurrence_24hr %>%
 
 Greenville_24hr_plot_weibull
 ```
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Boone 72-hr storm events"}
 # Boone
@@ -406,6 +409,7 @@ Boone_72hr_plot_weibull
 
 ```
 
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greensboro 72-hr storm events"}
 # Greensboro
 Greensboro_72hr_plot_weibull <- Greensboro_72hr_recurrence %>%
@@ -432,6 +436,7 @@ Greensboro_72hr_plot_weibull <- Greensboro_72hr_recurrence %>%
 Greensboro_72hr_plot_weibull
 
 ```
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greenville 72-hr storm events"}
 # Greenville
@@ -460,7 +465,9 @@ Greenville_72hr_plot_weibull
 
 ```
 
+
 The lines of best fit on each of the above graphs represent the probability distributions of different intensity 24-hr and 72-hr storm events (range on y-axis) in 1980-1999 and 2000-2016. We used these probability distributions to extract the depth of precipitation for 10, 25, 50, and 100 year flood events for 24-hr and 72-hr events in each city for the two time periods, as seen in the tables below:
+
 
 Table: Precipitation frequency estimates (in) for Boone, NC - 1980-1999
 
@@ -469,6 +476,7 @@ Table: Precipitation frequency estimates (in) for Boone, NC - 1980-1999
  |24-hr    |          1.20|           1.4|          1.54|           1.69|
  |72-hr    |          6.94|           8.1|          8.98|           9.87|
 
+
  Table: Precipitation frequency estimates (in) for Boone, NC - 2000-2016
 
  |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
@@ -476,12 +484,14 @@ Table: Precipitation frequency estimates (in) for Boone, NC - 1980-1999
  |24-hr    |          1.46|          1.70|          1.89|           2.08|
  |72-hr    |          7.44|          8.71|          9.66|          10.62|
 
+
  Table: Precipitation frequency estimates (in) for Greensboro, NC - 1980-1999
 
  |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
  |:--------|-------------:|-------------:|-------------:|--------------:|
  |24-hr    |          0.96|          1.12|          1.23|           1.35|
  |72-hr    |          5.41|          6.30|          6.98|           7.66|
+
 
  Table: Precipitation frequency estimates (in) for Greensboro, NC - 2000-2016
 
@@ -828,7 +838,7 @@ create_table_inches(final_results_greenville_24,
 ```
 
 ### Changes in flood events over time
-After getting the precipitation frequency estimates for 24-hr and 72-hr events for 10 year, 25 year, 50 year, and 100 year return intervals, we examined what the maximum monthly 24-hr and 72-hr events were from 1980-1999 and from 2000-2016 in each city. The purpose of this was to see if 25 year flood events (what we are assuming the infrastructure was designed for at each campus in 1999) are becoming more frequent or changing seasons from hurricane (July-October) to frontal (January-June). We counted how many times the maximum 24-hr and 72-hr flood events were occurring in each month pre-2000 and post-2000. 
+After getting the precipitation frequency estimates for 24-hr and 72-hr events for 10 year, 25 year, 50 year, and 100 year return intervals, we examined what the maximum monthly 24-hr and 72-hr events were from 1980-1999 and from 2000-2016 in each city. The purpose of this was to see if 25 year flood events (what we are assuming the infrastructure was designed for at each campus in 1999) are becoming more frequent or changing seasons from hurricane (July-October) to frontal (January-June). We counted how many times the maximum 24-hr and 72-hr 25 year flood events were occurring in each month pre-2000 and post-2000. 
 
 
 Table: Change in 25-year flood events pre-2000 and post-2000 for Boone, NC
@@ -1030,10 +1040,14 @@ greensboro_explore_frontal_post <-Greensboro_24hr %>%
   filter(year>= 2000,
          `Area Weighted Mean Precipitation (mm per day)`> 24.4,
          month== c(1,2,3,4,5,6))
-mean(greensboro_explore_hurricane_pre$`Area Weighted Mean Precipitation (mm per day)`)
-mean(greensboro_explore_hurricane_post$`Area Weighted Mean Precipitation (mm per day)`)
-mean(greensboro_explore_frontal_pre$`Area Weighted Mean Precipitation (mm per day)`)
-mean(greensboro_explore_frontal_post$`Area Weighted Mean Precipitation (mm per day)`)
+magnitude_hurricane_pre <- mean(greensboro_explore_hurricane_pre$`Area Weighted Mean Precipitation (mm per day)`)
+magnitude_hurricane_pre
+magnitude_hurricane_post <- mean(greensboro_explore_hurricane_post$`Area Weighted Mean Precipitation (mm per day)`)
+magnitude_hurricane_post
+magnitude_frontal_pre <- mean(greensboro_explore_frontal_pre$`Area Weighted Mean Precipitation (mm per day)`)
+magnitude_frontal_pre
+magnitude_frontal_post <- mean(greensboro_explore_frontal_post$`Area Weighted Mean Precipitation (mm per day)`)
+magnitude_frontal_post
   
 ```
 
