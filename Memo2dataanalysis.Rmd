@@ -17,9 +17,8 @@ library(knitr)
 library(tidyr)
 
 
-
 # read in raw data
-Greensboro_raw <- read_excel("Data/Hydrology_memo_2.xlsx", 
+Greensboro_raw <- read_excel("Home/Hydrology/Data/Hydrology_memo_2.xlsx", 
     sheet = "Greensboro_daily_precip_1980-pr", 
     col_types = c("date", "text", "numeric", 
         "numeric", "numeric"), na = "NaN")
@@ -44,7 +43,7 @@ Greenville_raw$`Area Weighted Mean Precipitation (mm per day)` <-
   as.numeric(Greenville_raw$`Area Weighted Mean Precipitation (mm per day)`)
 ```
 
-### Data Source
+### Data
 
 The daily area weighted mean precipitation data used for these analyses came from USGS gauging stations in Boone, Greensboro, and Greenville. The HUC codes for each station are as follows:
 
@@ -54,7 +53,6 @@ The daily area weighted mean precipitation data used for these analyses came fro
 
 We used these data to analyze whether precipitation characteristics have changed for the different college campuses located in each of these cities since the last major investment in infrastructure that wrapped up in 1999.
 
-### Data Wrangling
 We began our analysis by preparing the data to analyze different storm event durations, focusing on 24-hr and 72-hr storm events. To get estimates for 72-hr storm events we took a rolling sum across a 3 day window to get an estimated 72-hour storm event for each day. For 24-hr storm events we took a moving average of 24-hr data over a 7-day window to ensure each event being analyzed was statistically different from the others, which is an assumption of the Weibull recurrence interval calculation.
 
 For the 24-hour data we then found monthly maximum 24 hour events for each month in each year of available data. The maximum 24-hour storm event for each month from 1980-2016 was then used to calculate recurrence intervals for 24-hour storm events.
@@ -154,7 +152,6 @@ Greenville_24hr_monthlyavg <- Greenville_24hr %>%
 
 ```
 
-### Recurrence Interval Calculation
 We calculated both the Weibull and Hazen recurrence intervals for Boone, Greensboro, and Greenville's monthly maximum 24-hour and 72-hour storm events from 1980-1999 and from 2000-2016. Recurrence intervals using each method differed due to Weibull being more conservative (assigning higher return periods for more extreme events), and Hazen being less conservative (assigning a smoother distribution of recurrence intervals). Due to the large sample size and wanting to have conservative estimates based on the application of using these return periods being used for flood mitigation, we moved forward with using Weibull return periods for our decision making process.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
@@ -300,7 +297,7 @@ After calculating return intervals for each 24-hour and 72-hour storm event in e
 
 Since 1980-1999, events of the same likelihood have become more intense. For example, in Boone, a 1 inch 24-hour event from 1980-1999 had a 37.5% chance of occurring. More recent data (2000-2016) shows that the same likelihood event would be associated with around a 1.25 in 24 hour event.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= " Boone 24-hr storm events"}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Boone
 
 Boone_24hr_plot_weibull <- Boone_recurrence_24hr %>%
@@ -327,7 +324,7 @@ Boone_24hr_plot_weibull <- Boone_recurrence_24hr %>%
 Boone_24hr_plot_weibull
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greensboro 24-hr storm events"}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 Greensboro_24hr_plot_weibull <- Greensboro_recurrence_24hr %>%
   ggplot(aes(x = weibull_percent_likelihood_yr, 
              y = max_24_mm/25.4, 
@@ -353,7 +350,7 @@ Greensboro_24hr_plot_weibull <- Greensboro_recurrence_24hr %>%
 Greensboro_24hr_plot_weibull
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greenville 24-hr storm events"}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 Greenville_24hr_plot_weibull <- Greenville_recurrence_24hr %>%
   ggplot(aes(x = weibull_percent_likelihood_yr, 
              y = max_24_mm/25.4, 
@@ -379,7 +376,7 @@ Greenville_24hr_plot_weibull <- Greenville_recurrence_24hr %>%
 Greenville_24hr_plot_weibull
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Boone 72-hr storm events"}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Boone
 Boone_72hr_plot_weibull <- Boone_72hr_recurrence %>%
   ggplot(aes(x = weibull_percent_likelihood_yr, 
@@ -406,7 +403,7 @@ Boone_72hr_plot_weibull
 
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greensboro 72-hr storm events"}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Greensboro
 Greensboro_72hr_plot_weibull <- Greensboro_72hr_recurrence %>%
   ggplot(aes(x = weibull_percent_likelihood_yr, 
@@ -433,7 +430,7 @@ Greensboro_72hr_plot_weibull
 
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap= "Greenville 72-hr storm events"}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Greenville
 Greenville_72hr_plot_weibull <- Greenville_72hr_recurrence %>%
    ggplot(aes(x = weibull_percent_likelihood_yr, 
@@ -462,50 +459,6 @@ Greenville_72hr_plot_weibull
 
 The lines of best fit on each of the above graphs represent the probability distributions of different intensity 24-hr and 72-hr storm events (range on y-axis) in 1980-1999 and 2000-2016. We used these probability distributions to extract the depth of precipitation for 10, 25, 50, and 100 year flood events for 24-hr and 72-hr events in each city for the two time periods, as seen in the tables below:
 
-Table: Precipitation frequency estimates (in) for Boone, NC - 1980-1999
-
-|Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
- |:--------|-------------:|-------------:|-------------:|--------------:|
- |24-hr    |          1.20|           1.4|          1.54|           1.69|
- |72-hr    |          6.94|           8.1|          8.98|           9.87|
-
- Table: Precipitation frequency estimates (in) for Boone, NC - 2000-2016
-
- |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
- |:--------|-------------:|-------------:|-------------:|--------------:|
- |24-hr    |          1.46|          1.70|          1.89|           2.08|
- |72-hr    |          7.44|          8.71|          9.66|          10.62|
-
- Table: Precipitation frequency estimates (in) for Greensboro, NC - 1980-1999
-
- |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
- |:--------|-------------:|-------------:|-------------:|--------------:|
- |24-hr    |          0.96|          1.12|          1.23|           1.35|
- |72-hr    |          5.41|          6.30|          6.98|           7.66|
-
- Table: Precipitation frequency estimates (in) for Greensboro, NC - 2000-2016
-
- |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
- |:--------|-------------:|-------------:|-------------:|--------------:|
- |24-hr    |          1.08|          1.25|          1.39|           1.52|
- |72-hr    |          5.56|          6.50|          7.20|           7.91|
-
-
- Table: Precipitation frequency estimates (in) for Greenville, NC - 1980-1999
-
- |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
- |:--------|-------------:|-------------:|-------------:|--------------:|
- |24-hr    |           1.2|          1.40|          1.56|           1.71|
- |72-hr    |           6.5|          7.62|          8.46|           9.31|
-
-
- Table: Precipitation frequency estimates (in) for Greenville, NC - 2000-2016
-
- |Duration | 10 Year Flood| 25 Year Flood| 50 Year Flood| 100 Year Flood|
-|:--------|-------------:|-------------:|-------------:|--------------:|
-|24-hr    |          1.55|          1.82|          2.03|           2.24|
-|72-hr    |          8.69|         10.27|         11.46|          12.66|
-
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # weibull
 # boone 24 hr event
@@ -531,7 +484,7 @@ for (tf in levels(Boone_recurrence_24hr$Timeframe)) {
   # Step 4: Make predictions using the model
   predicted_precipitation <- predict(model, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding prob. and timeframe
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
     Timeframe = tf,
@@ -576,7 +529,7 @@ for (tf in levels(Greensboro_recurrence_24hr$Timeframe)) {
   # Step 4: Make predictions using the model
   predicted_precipitation <- predict(model, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding probab. and timeframe
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
     Timeframe = tf,
@@ -621,7 +574,7 @@ for (tf in levels(Greenville_recurrence_24hr$Timeframe)) {
   # Step 4: Make predictions using the model
   predicted_precipitation <- predict(model, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding prob and timeframe
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
     Timeframe = tf,
@@ -666,7 +619,7 @@ for (tf in levels(Boone_72hr_recurrence$Timeframe)) {
   # Step 4: Make predictions using the model
   predicted_precipitation <- predict(model, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding prob and timeframe
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
     Timeframe = tf,
@@ -710,7 +663,7 @@ for (tf in levels(Greensboro_72hr_recurrence$Timeframe)) {
   # Step 4: Make predictions using the model
   predicted_precipitation <- predict(model, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding prob and timeframe
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
     Timeframe = tf,
@@ -754,7 +707,7 @@ for (tf in levels(Greenville_72hr_recurrence$Timeframe)) {
   # Step 4: Make predictions using the model
   predicted_precipitation <- predict(model, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding prob and timeframe
+  # Step 5: Combine the predictions with the corresponding probabilities and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
     Timeframe = tf,
@@ -773,6 +726,65 @@ final_results_greenville_72 <- bind_rows(results)
 print(final_results_greenville_72)
 ```
 
+```{r}
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+
+# Function to create separate tables for each timeframe
+create_precipitation_table <- function(data_24, data_72, city_name) {
+  # Get unique timeframes
+  timeframes <- unique(data_24$Timeframe)
+  
+  # Loop through each timeframe and create a separate table
+  for (timeframe in timeframes) {
+    # Filter data for the current timeframe
+    data_24_tf <- data_24 %>% filter(Timeframe == timeframe)
+    data_72_tf <- data_72 %>% filter(Timeframe == timeframe)
+
+    # Combine the 24-hr and 72-hr data
+    combined_data <- bind_rows(
+      mutate(data_24_tf, Duration = "24-hr"),
+      mutate(data_72_tf, Duration = "72-hr")
+    ) %>%
+      select(Duration, Probability, Predicted_Precipitation_in) %>%
+      pivot_wider(names_from = Probability, 
+                  values_from = Predicted_Precipitation_in) %>%
+      rename(
+        `10 Year Flood` = `10`,  
+        `25 Year Flood` = `4`,   
+        `50 Year Flood` = `2`,   
+        `100 Year Flood` = `1`
+      ) %>%
+      select(Duration, `10 Year Flood`, `25 Year Flood`, `50 Year Flood`, `100 Year Flood`)
+
+    # Create the table for the current timeframe
+    cat(paste("\nPrecipitation frequency estimates (in) for", city_name, "-", timeframe, "\n"))
+    
+    # Use kable to format the table
+    print(kable(combined_data, 
+                caption = paste("Precipitation frequency estimates (in) for", city_name, "during", timeframe)) %>%
+            kable_styling(full_width = FALSE, position = "center") %>%
+            row_spec(0, bold = TRUE) %>%
+            column_spec(1, bold = TRUE) %>%
+            add_header_above(c(" " = 1, "Recurrence Interval (Years)" = 4)))
+  }
+}
+
+# Example usage:
+# For Boone, NC
+create_precipitation_table(final_results_boone_24, final_results_boone_72, "Boone, NC")
+
+# For Greensboro, NC
+create_precipitation_table(final_results_greensboro_24, final_results_greensboro_72, "Greensboro, NC")
+
+# For Greenville, NC
+create_precipitation_table(final_results_greenville_24, final_results_greenville_72, "Greenville, NC")
+
+```
+
+
 ```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # Create table for each city
 create_table_inches <- function(data_24, data_72, city_name) {
@@ -787,9 +799,8 @@ create_table_inches <- function(data_24, data_72, city_name) {
       mutate(data_24_tf, Duration = "24-hr"),
       mutate(data_72_tf, Duration = "72-hr")
     ) %>%
-      select(Duration, Probability, Predicted_Precipitation_in) %>%  
-      pivot_wider(names_from = Probability, 
-                  values_from = Predicted_Precipitation_in) %>%
+      select(Duration, Probability, Predicted_Precipitation_in) %>%  # Fixed the select statement
+      pivot_wider(names_from = Probability, values_from = Predicted_Precipitation_in) %>%
       rename(
         `10 Year Flood` = `10`,  
         `25 Year Flood` = `4`,   
@@ -813,53 +824,22 @@ create_table_inches <- function(data_24, data_72, city_name) {
 }
 
 # Create tables for Boone
-create_table_inches(final_results_boone_24, 
-                    final_results_boone_72, "Boone, NC")
+create_table_inches(final_results_boone_24, final_results_boone_72, "Boone, NC")
 
 # Create tables for Greensboro
-create_table_inches(final_results_greensboro_24,
-                    final_results_greensboro_72, "Greensboro, NC")
+create_table_inches(final_results_greensboro_24, final_results_greensboro_72, "Greensboro, NC")
 
 # Create tables for Greenville
-create_table_inches(final_results_greenville_24,
-                    final_results_greenville_72, "Greenville, NC")
+create_table_inches(final_results_greenville_24, final_results_greenville_72, "Greenville, NC")
 
 
 ```
+[add explanation if anything is changing?]
+After getting the precipitation frequency estimates for 24-hr and 72-hr events for 10 year, 25 year, 50 year, and 100 year return intervals, we examined what the maximum monthly 24-hr and 72-hr events were from 1980-1999 and from 2000-2016 in each city. The purpose of this was to see if 25 year flood events (what we are assuming the infrastructure was designed for at each campus in 1999) are becoming more frequent or changing seasons. 
 
-### Changes in flood events over time
-After getting the precipitation frequency estimates for 24-hr and 72-hr events for 10 year, 25 year, 50 year, and 100 year return intervals, we examined what the maximum monthly 24-hr and 72-hr events were from 1980-1999 and from 2000-2016 in each city. The purpose of this was to see if 25 year flood events (what we are assuming the infrastructure was designed for at each campus in 1999) are becoming more frequent or changing seasons from hurricane (July-October) to frontal (January-June). We counted how many times the maximum 24-hr and 72-hr flood events were occurring in each month pre-2000 and post-2000. 
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
 
-
-Table: Change in 25-year flood events pre-2000 and post-2000 for Boone, NC
-
-| Season          | Event                   | 1980-1999 | 2000-2016 |
-|:----------------|:------------------------|----------:|----------:|
-| **Hurricane**   | 24-hr 25-year event      |      0     |   4        |
-|                 | 72-hr 25-year event      |       0    |     1      |
-| **Frontal**     | 24-hr 25-year event      |      0     |     0      |
-|                 | 72-hr 25-year event      |       0    |       0    |
-
-Table: Change in 25-year flood events pre-2000 and post-2000 for Greensboro, NC
-
-| Season          | Event                   | 1980-1999 | 2000-2016 |
-|:----------------|:------------------------|----------:|----------:|
-| **Hurricane**   | 24-hr 25-year event      |      1     |   0        |
-|                 | 72-hr 25-year event      |       1    |     1      |
-| **Frontal**     | 24-hr 25-year event      |      0     |     0      |
-|                 | 72-hr 25-year event      |       0    |       0    |
-
-Table: Change in 25-year flood events pre-2000 and post-2000 for Greenville, NC
-
-| Season          | Event                   | 1980-1999 | 2000-2016 |
-|:----------------|:------------------------|----------:|----------:|
-| **Hurricane**   | 24-hr 25-year event      |      1     |   5        |
-|                 | 72-hr 25-year event      |       1    |     5      |
-| **Frontal**     | 24-hr 25-year event      |      0     |     0      |
-|                 | 72-hr 25-year event      |       0    |       0    |
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
-#Boone 24 hr
+```{r}
 prob_4_percent_value <- final_results_boone_24 %>%
   filter(Timeframe == '1980-1999', Probability == 4) %>%
   pull(Predicted_Precipitation_mm)
@@ -882,8 +862,7 @@ boone_monthly_old_data <-  Boone_24hr_monthlyavg %>%
   ungroup()
 ```
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
-#Greensboro 24 hr
+```{r}
 prob_4_percent_value <- final_results_greensboro_24 %>%
   filter(Timeframe == '1980-1999', Probability == 4) %>%
   pull(Predicted_Precipitation_mm)
@@ -906,10 +885,9 @@ greensboro_monthly_old_data <-  Greensboro_24hr_monthlyavg %>%
   ungroup()
 ```
 
+Greenville 24 hour events:
 
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
-#Greenville 24 hour events:
+```{r}
 prob_4_percent_value <- final_results_greenville_24 %>%
   filter(Timeframe == '1980-1999', Probability == 4) %>%
   pull(Predicted_Precipitation_mm)
@@ -932,9 +910,12 @@ greenville_monthly_old_data <-  Greenville_24hr_monthlyavg %>%
   ungroup()
 ```
 
+# Boone 72hr storm events
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
-#Boone 72 hour
+
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
+
+```{r}
 prob_4_percent_value <- final_results_boone_72 %>%
   filter(Timeframe == '1980-1999', Probability == 4) %>%
   pull(Predicted_Precipitation_mm)
@@ -956,9 +937,15 @@ boone_monthly_old_data_72 <-  Boone_72hr_monthlyavg %>%
   ungroup()
 ```
 
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
 # Greensboro 72hr storm events
+
+
+Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed.
+
+
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
+
+```{r}
 prob_4_percent_value <- final_results_greensboro_72 %>%
   filter(Timeframe == '1980-1999', Probability == 4) %>%
   pull(Predicted_Precipitation_mm)
@@ -982,9 +969,16 @@ greensboro_monthly_old_data_72 <-  Greensboro_72hr_monthlyavg %>%
 
 ```
 
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
 # Greenville 72hr storm events
+
+
+Need to extract the precipitation depths for 10, 25, 50, and 100 year floods for each time period (for this 24 hour event). Fit a line of best fit to the probability distribution to interpolate for flood events that aren't observed.
+
+
+Now we need to compare the monthly average from 2000-2016 maximum monthly 24-hr rain event. See which months exceed a 25 year flood from 1980-1999.
+
+```{r}
+
 prob_4_percent_value <- final_results_greenville_72 %>%
   filter(Timeframe == '1980-1999', Probability == 4) %>%
   pull(Predicted_Precipitation_mm)
@@ -1006,9 +1000,8 @@ greenville_monthly_old_data_72 <-  Greenville_72hr_monthlyavg %>%
   ungroup()
 ```
 
-25-year flood events during hurricane season have increased in frequency in Boone and Greenville since 2000. 25-year flood events in Greensboro have not increased in frequency. The results from Greensboro made us want to take a deeper dive into the data. We explored the raw data and found frequency of events greater than a 10 year flood event are happening at the same frequency in hurricane and frontal seasons pre- and post-2000 in Greensboro. Additionally, the average magnitude of these events is not increasing. 
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r}
 greensboro_explore_hurricane_pre <- Greensboro_24hr %>% 
   filter(year< 2000 & year > 1984,
          `Area Weighted Mean Precipitation (mm per day)`> 24.4,
@@ -1030,14 +1023,14 @@ greensboro_explore_frontal_post <-Greensboro_24hr %>%
   filter(year>= 2000,
          `Area Weighted Mean Precipitation (mm per day)`> 24.4,
          month== c(1,2,3,4,5,6))
-mean(greensboro_explore_hurricane_pre$`Area Weighted Mean Precipitation (mm per day)`)
+  mean(greensboro_explore_hurricane_pre$`Area Weighted Mean Precipitation (mm per day)`)
 mean(greensboro_explore_hurricane_post$`Area Weighted Mean Precipitation (mm per day)`)
 mean(greensboro_explore_frontal_pre$`Area Weighted Mean Precipitation (mm per day)`)
 mean(greensboro_explore_frontal_post$`Area Weighted Mean Precipitation (mm per day)`)
   
 ```
 
-### Hours spent working
-Emma Kaufman: 20 hours
-Sarah Sussman: 13 hours
-Mark Lamendola: 10 hours
+## Sources
+
+Boone HUC 050500010201 Greensboro HUC 030300020105 Greenville 030201030403
+
