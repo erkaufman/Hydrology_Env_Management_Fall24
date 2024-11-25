@@ -1,0 +1,6 @@
+---
+title: 'Hydrology Assignment 4: Water Supply Intake Structure at Clayton, NC'
+author: "Emma Kaufman"
+date: "2024-11-25"
+output: pdf_document
+---
