@@ -4,3 +4,231 @@ author: "Emma Kaufman"
 date: "2024-11-25"
 output: pdf_document
 ---
+
+```{r}
+# load packages
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(zoo)
+library(ggplot2)
+library(knitr)
+library(tidyr)
+
+
+# read in raw data
+Falls_raw <- read_csv("Data/neuse_river_at_falls_02087183_daily_flow_updated.csv", 
+    col_types = cols(site_no = col_factor(levels = c("2087183")), 
+        Date = col_date(format = "%m/%d/%Y")),
+    na = "NA")
+
+Clayton_raw <- read_csv("Data/neuse_river_at_clayton_02087500_daily_flow_updated.csv", 
+    col_types = cols(site_no = col_factor(levels = c("2087500")), 
+        Date = col_date(format = "%m/%d/%Y")), 
+    na = "NA")
+```
+
+Begin by examining the data at Clayton, only column with NA's is daily max discharge. Data for this column is available starting 2004-10-01. Also look to see if the average daily discharge is ever 0 and it isn't 
+```{r}
+summary(Clayton_raw)
+sum(Clayton_raw$daily_mean_discharge_cfs == 0)
+tail(Clayton_raw)
+```
+
+Only work with mean daily discharge data from 1981-2023 (don't have the entire year of data for 2024, so go through 2023). 
+Take the weekly rolling average of the daily mean discharge. Find the maximum of this weekly average for each year, then rank them within the two timeframes and find recurrence intervals.
+```{r}
+
+# create column of weekly average 
+Clayton_1981_2023 <- Clayton_raw %>% 
+  filter(year >= 1981 & year <= 2023) %>% 
+  mutate(weekly_avg_Q_cfs = rollmean(daily_mean_discharge_cfs,
+                               k= 7, fill= NA, align = "right")) %>% 
+   mutate(Timeframe = as.factor(ifelse(year>=2001,"2001-2024","1981-2000")))
+
+# find yearly maximum
+Clayton_yearly_max <- Clayton_1981_2023 %>% 
+  slice(-1, -2, -3, -4, -5, -6) %>% #skip first three rows bc NA
+  group_by(year, Timeframe) %>% 
+  summarize(yearly_max_Q_cfs = max(weekly_avg_Q_cfs))
+
+# Rank yearly maximums
+# split up rankings by time period, before and after intake design
+Clayton_max_recurrence2 <- Clayton_yearly_max %>% 
+  filter(Timeframe == '1981-2000') %>% 
+  arrange(desc(yearly_max_Q_cfs))
+
+Clayton_max_recurrence_81_2000 <- Clayton_max_recurrence2 %>% 
+  ungroup() %>% 
+  mutate(
+    Rank = rank(-yearly_max_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    #weibull_return_24_year = weibull_return_24hr/12,
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+  )
+
+Clayton_max_recurrence3 <- Clayton_yearly_max %>% 
+  filter(Timeframe == '2001-2024') %>% 
+  arrange(desc(yearly_max_Q_cfs))
+
+Clayton_max_recurrence_2001_2024 <- Clayton_max_recurrence3 %>% 
+  ungroup() %>% 
+  mutate(
+    Rank = rank(-yearly_max_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    #weibull_return_24_year = weibull_return_24hr/12,
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+  )
+
+# Combine the two dataframes
+Clayton_max_recurrence_combined <- bind_rows(
+  Clayton_max_recurrence_81_2000,
+  Clayton_max_recurrence_2001_2024
+)
+
+# find yearly minimums
+Clayton_yearly_min <- Clayton_1981_2023 %>% 
+  slice(-1, -2, -3, -4, -5, -6) %>% #skip first three rows bc NA
+  group_by(year, Timeframe) %>% 
+  summarize(yearly_min_Q_cfs = min(weekly_avg_Q_cfs))
+
+# Rank yearly minimums, lowest to highest
+# split up rankings by time period, before and after intake design
+Clayton_min_recurrence4 <- Clayton_yearly_min %>% 
+  filter(Timeframe == '1981-2000') %>% 
+  arrange(yearly_min_Q_cfs)
+
+Clayton_min_recurrence_81_2000 <- Clayton_min_recurrence4 %>% 
+  ungroup() %>% 
+  mutate(
+    Rank = rank(yearly_min_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    #weibull_return_24_year = weibull_return_24hr/12,
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+  )
+
+Clayton_min_recurrence5 <- Clayton_yearly_min %>% 
+  filter(Timeframe == '2001-2024') %>% 
+  arrange(yearly_min_Q_cfs)
+
+Clayton_min_recurrence_2001_2024 <- Clayton_min_recurrence5 %>% 
+  ungroup() %>% 
+  mutate(
+    Rank = rank(yearly_min_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    #weibull_return_24_year = weibull_return_24hr/12,
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+  )
+
+# Combine the two dataframes
+Clayton_min_recurrence_combined <- bind_rows(
+  Clayton_min_recurrence_81_2000,
+  Clayton_min_recurrence_2001_2024
+)
+
+```
+
+```{r}
+# Plotting maximum recurrence intervals in the two time periods
+
+Maximum_recurrence <- Clayton_max_recurrence_combined %>%
+  ggplot(aes(x = weibull_percent_likelihood, 
+             y = yearly_max_Q_cfs, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%)", 
+       y = "Maximum yearly discharge (cfs)", 
+       title = "Yearly maximum daily discharge recurrence intervals",
+       subtitle = "USGS stream gauge: 2087500",
+       color = NULL) +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_log10(
+    trans = "reverse",  
+    limits = c(100, 1),  
+    breaks = c(100, 50, 25, 10, 5, 1),  
+    labels = c(100, 50, 25, 10, 5, 1)
+  )+ 
+  theme(legend.position = "top")
+
+Maximum_recurrence
+
+```
+
+```{r}
+# Plotting minimum recurrence intervals in the two time periods
+Minimum_recurrence <- Clayton_min_recurrence_combined %>%
+  ggplot(aes(x = weibull_percent_likelihood, 
+             y = yearly_min_Q_cfs, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Probability of Occurrence (%)", 
+       y = "Minimum yearly discharge (cfs)", 
+       title = "Yearly minimum daily discharge recurrence intervals",
+       subtitle = "USGS stream gauge: 2087500",
+       color = NULL) +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_log10(
+    trans = "reverse",  
+    limits = c(100, 1),  
+    breaks = c(100, 50, 25, 10, 5, 1),  
+    labels = c(100, 50, 25, 10, 5, 1)
+  )+ 
+  theme(legend.position = "top")
+
+Minimum_recurrence
+```
+
+The lines of best fit on each of the above graphs represent the probability distributions of maximum yearly discharge (range on y-axis) in 1981-2000 and 2001-2024. We used these probability distributions to extract the max and min discharge for 10, 25, 50, and 100 year events for the two time periods, as seen in the tables below:
+```{r}
+# Extract the probability of occurrence for 10,25,50,100 year max flood events 
+# Define probabilities of occurrence
+probabilities <- c(1, 2, 4, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Step 1: Loop through each timeframe and fit models
+for (tf in levels(Clayton_max_recurrence_combined$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <-Clayton_max_recurrence_combined %>% 
+    filter(Timeframe == tf)
+  
+  # Step 2: Fit a linear model
+  model <- lm(yearly_max_Q_cfs ~ weibull_percent_likelihood, data = data_subset)
+  
+  # Step 3: Create a new data frame for predictions
+  new_data <- data.frame(weibull_percent_likelihood = probabilities)
+  
+  # Step 4: Make predictions using the model
+  predicted_discharge <- predict(model, newdata = new_data)
+  
+  # Step 5: Combine the predictions with the corresponding prob and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Timeframe = tf,
+    Predicted_discharge = predicted_discharge)
+  
+  # Step 6: Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Step 7: Combine all results into a single data frame
+final_results_max <- bind_rows(results)
+
+# Display the predicted precipitation for each timeframe
+print(final_results_max)
+```
+
