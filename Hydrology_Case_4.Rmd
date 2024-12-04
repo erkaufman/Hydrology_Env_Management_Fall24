@@ -1,0 +1,173 @@
+---
+title: "Hydrology Case 4"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r loading libraries, include=FALSE}
+library(tidyverse)
+library(moments)
+library(openxlsx)
+library(readxl)
+library(lubridate)
+library(sandwich)
+library(zoo)
+```
+
+
+```{r reading nuese river at clayton, include=FALSE}
+clayton <- read_excel("neuse_river_at_clayton_02087500_daily_flow_updated.xlsx")
+```
+
+```{r reading nuese river at falls, include=FALSE}
+falls <- read_excel("neuse_river_at_falls_02087183_daily_flow_updated.xlsx")
+```
+
+```{r rolling average value, include=FALSE}
+roll <- 1
+```
+
+
+```{r wrangling data clayton, include=FALSE}
+clayton <- clayton |>
+  mutate(moving_avg = rollapply(daily_mean_discharge_cfs, width = roll, FUN = mean, align = "center", fill = NA)) 
+
+clayton.flood <- clayton |>
+  mutate(Year = format(Date, "%Y")) |>  
+  group_by(Year) |>                     
+  summarize(MaxEvent = max(moving_avg)) |>
+  filter(Year != 1981, Year != 2024)
+```
+
+```{r 50 year flood event clayton, include=FALSE}
+clayton.flood <- clayton.flood |>
+  arrange(desc(MaxEvent))|>
+  mutate(rank = row_number())|>
+  mutate(Fa_Value = ((100*(2*rank - 1))/(2*42)))|>
+  mutate(hazen = 100/Fa_Value)
+```
+
+```{r model clayton, include=FALSE}
+model.1 <- lm(MaxEvent ~ hazen, data = clayton.flood)
+
+model.1
+```
+
+
+```{r 50, include=FALSE}
+yr <- data.frame(hazen = 50)
+```
+
+```{r model 1 clayton prediction, include=FALSE}
+clayton50yr <- predict(model.1, yr)
+```
+
+
+```{r graph clayton, include=FALSE}
+clayton.lmgraph <- ggplot(clayton.flood, aes(x = hazen, y = MaxEvent)) +
+  geom_point() +  # Plot the actual data points
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  
+  labs(title = "Clayton Linear Model: MaxEvent vs Hazen", 
+       x = "Hazen", 
+       y = "MaxEvent") +
+  theme_minimal()
+clayton.lmgraph
+```
+
+```{r graph log clayton, include=FALSE}
+clayton.flood <- clayton.flood |>
+  mutate(log_hazen = log(hazen))
+
+clayton.loggraph <- ggplot(clayton.flood, aes(x = log_hazen, y = MaxEvent)) +
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  
+  labs(title = "Clayton MaxEvent vs Log Hazen", 
+       x = "Hazen", 
+       y = "MaxEvent") +
+  theme_minimal()
+clayton.loggraph
+```
+
+```{r model clayton, include=FALSE}
+model.2 <- lm(MaxEvent ~ log_hazen, data = clayton.flood)
+
+model.2
+```
+
+
+```{r natural log 50, include=FALSE}
+ln50 <- log(50)
+
+ln50_data <- data.frame(log_hazen = ln50)
+```
+
+
+```{r model 2 falls prediction, include=FALSE}
+claytonlog50yr <- predict(model.2, ln50_data)
+```
+
+
+
+```{r wrangling data falls, include=FALSE}
+falls <- falls |>
+  mutate(moving_avg = rollapply(daily_mean_discharge_cfs, width = roll, FUN = mean, align = "center", fill = NA)) 
+
+falls.flood <- falls |>
+  mutate(Year = format(Date, "%Y")) |>  
+  group_by(Year) |>                     
+  summarize(MaxEvent = max(moving_avg)) |>
+  filter(Year != 1970, Year != 2024)
+```
+
+```{r 50 year flood event clayton, include=FALSE}
+falls.flood <- falls.flood |>
+  arrange(desc(MaxEvent))|>
+  mutate(rank = row_number())|>
+  mutate(Fa_Value = ((100*(2*rank - 1))/(2*42)))|>
+  mutate(hazen = 100/Fa_Value)
+```
+
+```{r model falls, include=FALSE}
+model.falls.1 <- lm(MaxEvent ~ hazen, data = falls.flood)
+
+model.falls.1
+```
+
+```{r graph falls, include=FALSE}
+falls.lmgraph <- ggplot(falls.flood, aes(x = hazen, y = MaxEvent)) +
+  geom_point() +  # Plot the actual data points
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  
+  labs(title = "Falls Linear Model: MaxEvent vs Hazen", 
+       x = "Hazen", 
+       y = "MaxEvent") +
+  theme_minimal()
+falls.lmgraph
+```
+
+```{r graph log falls, include=FALSE}
+falls.flood <- falls.flood |>
+  mutate(log_hazen = log(hazen))
+
+falls.loggraph <- ggplot(falls.flood, aes(x = log_hazen, y = MaxEvent)) +
+  geom_point() +  
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +  
+  labs(title = "Falls MaxEvent vs Log Hazen", 
+       x = "Hazen", 
+       y = "MaxEvent") +
+  theme_minimal()
+falls.loggraph
+```
+
+```{r model falls 2, include=FALSE}
+model.falls.2 <- lm(MaxEvent ~ log_hazen, data = falls.flood)
+
+model.falls.2
+```
+
+
+```{r model 2 falls prediction, include=FALSE}
+fallslog50yr <- predict(model.falls.2, ln50_data)
+```
+
+

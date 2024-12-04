@@ -2,7 +2,10 @@
 title: 'Hydrology Assignment 4: Water Supply Intake Structure at Clayton, NC'
 author: "Emma Kaufman"
 date: "2024-11-25"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r}
@@ -29,28 +32,37 @@ Clayton_raw <- read_csv("Data/neuse_river_at_clayton_02087500_daily_flow_updated
 ```
 
 Begin by examining the data at Clayton, only column with NA's is daily max discharge. Data for this column is available starting 2004-10-01. Also look to see if the average daily discharge is ever 0 and it isn't 
-```{r}
-summary(Clayton_raw)
-sum(Clayton_raw$daily_mean_discharge_cfs == 0)
-tail(Clayton_raw)
-```
 
-Only work with mean daily discharge data from 1981-2023 (don't have the entire year of data for 2024, so go through 2023). 
+Only work with mean daily discharge data from 1928-2023 (don't have the entire year of data for 2024, so go through 2023). 
 Take the weekly rolling average of the daily mean discharge. Find the maximum of this weekly average for each year, then rank them within the two timeframes and find recurrence intervals.
 ```{r}
-
-# create column of weekly average 
+# create column of weekly average for 1981-2023
 Clayton_1981_2023 <- Clayton_raw %>% 
   filter(year >= 1981 & year <= 2023) %>% 
   mutate(weekly_avg_Q_cfs = rollmean(daily_mean_discharge_cfs,
                                k= 7, fill= NA, align = "right")) %>% 
-   mutate(Timeframe = as.factor(ifelse(year>=2001,"2001-2024","1981-2000")))
+   mutate(Timeframe = as.factor(ifelse(year>=2001,"2001-2023","1981-2000")))
+
+# weekly average for all data 1928-2023
+Clayton_all <- Clayton_raw %>% 
+  filter(year >= 1928 & year <=2023) %>% 
+  mutate(weekly_avg_Q_cfs = rollmean(daily_mean_discharge_cfs,
+                               k= 7, fill= NA, align = "right")) %>% 
+  slice(-1,-2,-3,-4,-5,-6) %>% 
+  mutate(Timeframe =as.factor( ifelse(year < 1981, "Pre-1981",
+                                      ifelse(year >= 1981 & year <= 2000,
+                                             "1981-2000", "2001-2023"))))
 
 # find yearly maximum
 Clayton_yearly_max <- Clayton_1981_2023 %>% 
-  slice(-1, -2, -3, -4, -5, -6) %>% #skip first three rows bc NA
   group_by(year, Timeframe) %>% 
-  summarize(yearly_max_Q_cfs = max(weekly_avg_Q_cfs))
+  summarize(yearly_max_Q_cfs = max(daily_mean_discharge_cfs),
+            max_max_Q_cfs = max(daily_max_discharge_cfs))
+
+Clayton_all_yearly_max <- Clayton_raw %>% 
+  group_by(year) %>% 
+  summarize(yearly_max_Q_cfs = max(daily_mean_discharge_cfs),
+            max_max_Q_cfs = max(daily_max_discharge_cfs))
 
 # Rank yearly maximums
 # split up rankings by time period, before and after intake design
@@ -63,38 +75,99 @@ Clayton_max_recurrence_81_2000 <- Clayton_max_recurrence2 %>%
   mutate(
     Rank = rank(-yearly_max_Q_cfs),
     weibull_return = ((n()+1)/Rank),
-    #weibull_return_24_year = weibull_return_24hr/12,
     weibull_percent_likelihood=(1/weibull_return)*100,
-    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
-    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood),
+    log_hazen = log(hazen_return)
   )
 
 Clayton_max_recurrence3 <- Clayton_yearly_max %>% 
-  filter(Timeframe == '2001-2024') %>% 
+  filter(Timeframe == '2001-2023') %>% 
   arrange(desc(yearly_max_Q_cfs))
 
-Clayton_max_recurrence_2001_2024 <- Clayton_max_recurrence3 %>% 
+Clayton_max_recurrence_2001_2023 <- Clayton_max_recurrence3 %>% 
   ungroup() %>% 
   mutate(
     Rank = rank(-yearly_max_Q_cfs),
     weibull_return = ((n()+1)/Rank),
-    #weibull_return_24_year = weibull_return_24hr/12,
     weibull_percent_likelihood=(1/weibull_return)*100,
-    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
-    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood),
+    log_hazen = log(hazen_return)
   )
 
 # Combine the two dataframes
 Clayton_max_recurrence_combined <- bind_rows(
   Clayton_max_recurrence_81_2000,
-  Clayton_max_recurrence_2001_2024
+  Clayton_max_recurrence_2001_2023
 )
 
+Clayton_all_data_return <- Clayton_yearly_max %>% 
+  ungroup() %>% 
+   mutate(
+    Rank = rank(-yearly_max_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
+    log_prob_occurence_weibull = log(weibull_percent_likelihood),
+    log_hazen = log(hazen_return)
+  )
+  
+```
+
+
+```{r}
+Maximum_recurrence_year <- Clayton_max_recurrence_combined %>%
+  ggplot(aes(x = hazen_return, 
+             y = yearly_max_Q_cfs, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
+  labs(x = "Return Interval (years)", 
+       y = "Maximum yearly average daily discharge (cfs)", 
+       title = "Yearly maximum average daily discharge recurrence intervals",
+       subtitle = "USGS stream gauge: 2087500",
+       color = NULL) +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_log10(
+    limits = c(1, 100),  
+    breaks = c(1, 2, 4, 10, 50, 100),  
+    labels = c(1, 2, 4, 10, 50, 100)
+  )+ 
+  theme(legend.position = "top")
+
+Maximum_recurrence_year
+```
+
+```{r}
 # find yearly minimums
 Clayton_yearly_min <- Clayton_1981_2023 %>% 
   slice(-1, -2, -3, -4, -5, -6) %>% #skip first three rows bc NA
   group_by(year, Timeframe) %>% 
   summarize(yearly_min_Q_cfs = min(weekly_avg_Q_cfs))
+
+Clayton_yearly_min_all <- Clayton_all %>% 
+  group_by(year, Timeframe) %>% 
+  summarize(yearly_min_Q_cfs = min(weekly_avg_Q_cfs))
+
+Clayton_all_min_reccurence <- Clayton_yearly_min_all %>% 
+  filter(year < 2000) %>% 
+  ungroup() %>% 
+  mutate(
+    Rank = rank(yearly_min_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    #weibull_return_24_year = weibull_return_24hr/12,
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
+    #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
+    log_prob_occurence_weibull = log10(weibull_percent_likelihood),
+    log_hazen = log(hazen_return)
+  )
 
 # Rank yearly minimums, lowest to highest
 # split up rankings by time period, before and after intake design
@@ -109,59 +182,75 @@ Clayton_min_recurrence_81_2000 <- Clayton_min_recurrence4 %>%
     weibull_return = ((n()+1)/Rank),
     #weibull_return_24_year = weibull_return_24hr/12,
     weibull_percent_likelihood=(1/weibull_return)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
     #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
-    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+    log_prob_occurence_weibull = log10(weibull_percent_likelihood),
+    log_hazen = log(hazen_return)
   )
 
 Clayton_min_recurrence5 <- Clayton_yearly_min %>% 
-  filter(Timeframe == '2001-2024') %>% 
+  filter(Timeframe == '2001-2023') %>% 
   arrange(yearly_min_Q_cfs)
 
-Clayton_min_recurrence_2001_2024 <- Clayton_min_recurrence5 %>% 
+Clayton_min_recurrence_2001_2023 <- Clayton_min_recurrence5 %>% 
   ungroup() %>% 
   mutate(
     Rank = rank(yearly_min_Q_cfs),
     weibull_return = ((n()+1)/Rank),
     #weibull_return_24_year = weibull_return_24hr/12,
     weibull_percent_likelihood=(1/weibull_return)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
     #weibull_percent_likelihood_yr=(1/weibull_return_24_year)*100,
-    log_prob_occurence_weibull = log(weibull_percent_likelihood)
+    log_prob_occurence_weibull = log10(weibull_percent_likelihood),
+    log_hazen = log(hazen_return)
   )
 
 # Combine the two dataframes
 Clayton_min_recurrence_combined <- bind_rows(
   Clayton_min_recurrence_81_2000,
-  Clayton_min_recurrence_2001_2024
+  Clayton_min_recurrence_2001_2023
 )
 
 ```
 
 ```{r}
-# Plotting maximum recurrence intervals in the two time periods
+#extracting 50 year and 10 year flows for different time periods
 
-Maximum_recurrence <- Clayton_max_recurrence_combined %>%
-  ggplot(aes(x = weibull_percent_likelihood, 
-             y = yearly_max_Q_cfs, 
-             color = Timeframe)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
-  labs(x = "Probability of Occurrence (%)", 
-       y = "Maximum yearly discharge (cfs)", 
-       title = "Yearly maximum daily discharge recurrence intervals",
-       subtitle = "USGS stream gauge: 2087500",
-       color = NULL) +
-  theme_minimal() +
-  scale_color_manual(values = c("thistle4", "tomato3"))+
-  scale_x_log10(
-    trans = "reverse",  
-    limits = c(100, 1),  
-    breaks = c(100, 50, 25, 10, 5, 1),  
-    labels = c(100, 50, 25, 10, 5, 1)
-  )+ 
-  theme(legend.position = "top")
+model_max_01_23 <- lm(yearly_max_Q_cfs ~ log_hazen, data=Clayton_max_recurrence_2001_2023)
+log50 <- log(50)
+log_50_data <- data.frame(log_hazen = log50)
+log50_01_23 <- predict(model_max_01_23, log_50_data)
 
-Maximum_recurrence
+model_max_81_00 <- lm(yearly_max_Q_cfs ~ log_hazen, data=Clayton_max_recurrence_81_2000)
+log50_81_00 <- predict(model_max_81_00, log_50_data)
 
+model_min_01_23<- lm(yearly_min_Q_cfs ~ log_hazen, data=Clayton_min_recurrence_2001_2023)
+log10<- log(10)
+log_10_data <- data.frame(log_hazen = log10)
+log10_01_23 <- predict(model_min_01_23, log_10_data)
+
+model_min_81_00 <- lm(yearly_min_Q_cfs ~ log_hazen, data=Clayton_min_recurrence_81_2000)
+log10_81_00 <- predict(model_min_81_00, log_10_data)
+
+model_min_28_80 <- lm(yearly_min_Q_cfs ~ log_hazen, data =  Clayton_all_min_reccurence )
+log10_28_80 <- predict(model_min_28_80, log_10_data)
+
+```
+
+```{r}
+
+Clayton_all_data_return_min <- Clayton_all %>% 
+  ungroup() %>% 
+   mutate(
+    Rank = rank(yearly_min_Q_cfs),
+    weibull_return = ((n()+1)/Rank),
+    weibull_percent_likelihood=(1/weibull_return)*100,
+    hazen_percent_likelihood = 100*(2*Rank-1)/(2*n()),
+    hazen_return = 100/hazen_percent_likelihood,
+    log_prob_occurence_weibull = log10(weibull_percent_likelihood)
+  )
 ```
 
 ```{r}
@@ -171,7 +260,7 @@ Minimum_recurrence <- Clayton_min_recurrence_combined %>%
              y = yearly_min_Q_cfs, 
              color = Timeframe)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
   labs(x = "Probability of Occurrence (%)", 
        y = "Minimum yearly discharge (cfs)", 
        title = "Yearly minimum daily discharge recurrence intervals",
@@ -190,45 +279,139 @@ Minimum_recurrence <- Clayton_min_recurrence_combined %>%
 Minimum_recurrence
 ```
 
-The lines of best fit on each of the above graphs represent the probability distributions of maximum yearly discharge (range on y-axis) in 1981-2000 and 2001-2024. We used these probability distributions to extract the max and min discharge for 10, 25, 50, and 100 year events for the two time periods, as seen in the tables below:
+The lines of best fit on each of the above graphs represent the probability distributions of maximum yearly discharge (range on y-axis) in 1981-2000 and 2001-2023. We used these probability distributions to extract the max and min discharge for 10, 25, 50, and 100 year events for the two time periods, as seen in the tables below:
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r}
-# Extract the probability of occurrence for 10,25,50,100 year max flood events 
-# Define probabilities of occurrence
-probabilities <- c(1, 2, 4, 10)
+# Load necessary libraries
+library(dplyr)
+
+# Define the specific probabilities of occurrence you want to predict
+probabilities <- c(1, 2, 5, 10)
 
 # Create an empty list to store results
 results <- list()
 
-# Step 1: Loop through each timeframe and fit models
-for (tf in levels(Clayton_max_recurrence_combined$Timeframe)) {
+# Loop through each timeframe and fit models
+for (tf in unique(Clayton_max_recurrence_combined$Timeframe)) {
   
   # Filter data for the current timeframe
-  data_subset <-Clayton_max_recurrence_combined %>% 
+  data_subset <- Clayton_max_recurrence_combined %>% 
     filter(Timeframe == tf)
   
-  # Step 2: Fit a linear model
-  model <- lm(yearly_max_Q_cfs ~ weibull_percent_likelihood, data = data_subset)
-  
-  # Step 3: Create a new data frame for predictions
+  # Fit the linear model for the current timeframe
+  model1 <- lm(yearly_max_Q_cfs ~ weibull_percent_likelihood, data = data_subset)
+  model1
+
+  # Create a new data frame for predictions
   new_data <- data.frame(weibull_percent_likelihood = probabilities)
   
-  # Step 4: Make predictions using the model
-  predicted_discharge <- predict(model, newdata = new_data)
+  # Make predictions using the model
+  predicted_values <- predict(model1, newdata = new_data)
   
-  # Step 5: Combine the predictions with the corresponding prob and timeframe
+  # Combine the predictions with the corresponding probability and timeframe
   predicted_results <- data.frame(
     Probability = probabilities,
-    Timeframe = tf,
-    Predicted_discharge = predicted_discharge)
+    Predicted_max_discharge = predicted_values,
+    Timeframe = tf
+  )
   
-  # Step 6: Store the results in the list
+  # Store the results in the list
   results[[tf]] <- predicted_results
 }
 
-# Step 7: Combine all results into a single data frame
+# Combine all results into a single data frame
 final_results_max <- bind_rows(results)
 
-# Display the predicted precipitation for each timeframe
+# Display the predicted discharge for each timeframe
 print(final_results_max)
+model1
+
 ```
 
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Define the specific probabilities of occurrence you want to predict
+probabilities <- c(1, 2, 5, 10)
+
+# Create an empty list to store results
+results <- list()
+
+# Loop through each timeframe and fit models
+for (tf in unique(Clayton_min_recurrence_combined$Timeframe)) {
+  
+  # Filter data for the current timeframe
+  data_subset <- Clayton_min_recurrence_combined %>% 
+    filter(Timeframe == tf)
+  
+  # Fit the linear model for the current timeframe
+  model <- lm(yearly_min_Q_cfs ~ weibull_percent_likelihood, data = data_subset)
+  
+  # Create a new data frame for predictions
+  new_data <- data.frame(weibull_percent_likelihood = probabilities)
+  
+  # Make predictions using the model
+  predicted_values <- predict(model, newdata = new_data)
+  
+  # Combine the predictions with the corresponding probability and timeframe
+  predicted_results <- data.frame(
+    Probability = probabilities,
+    Predicted_min_discharge = predicted_values,
+    Timeframe = tf
+  )
+  
+  # Store the results in the list
+  results[[tf]] <- predicted_results
+}
+
+# Combine all results into a single data frame
+final_results_min <- bind_rows(results)
+
+# Display the predicted discharge for each timeframe
+print(final_results_min)
+
+# write to excel
+write.csv(Clayton_1981_2023, "Data/Clayton_7_avg_flow_1981_2023.csv", row.names = FALSE)
+
+write.csv(Clayton_all_data_return, "Data/Clayton_7_all_data.csv", row.names = FALSE)
+
+```
+```{r}
+# Plotting maximum recurrence intervals in the two time periods
+
+Maximum_recurrence_percent <- Clayton_max_recurrence_combined %>%
+  ggplot(aes(x = hazen_percent_likelihood, 
+             y = yearly_max_Q_cfs, 
+             color = Timeframe)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
+  labs(x = "Probability of Occurrence (%)", 
+       y = "Maximum yearly discharge (cfs)", 
+       title = "Yearly maximum daily discharge recurrence intervals",
+       subtitle = "USGS stream gauge: 2087500",
+       color = NULL) +
+  theme_minimal() +
+  scale_color_manual(values = c("thistle4", "tomato3"))+
+  scale_x_log10(
+    trans = "reverse",  
+    limits = c(100, 1),  
+    breaks = c(100, 50, 25, 10, 5, 1),  
+    labels = c(100, 50, 25, 10, 5, 1)
+  )+ 
+  theme(legend.position = "top")
+
+Maximum_recurrence_percent
+
+```
